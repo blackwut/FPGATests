@@ -45,7 +45,7 @@ AOCL_LINK_CONFIG := -L/opt/intelFPGA_pro/19.1/hld/board/terasic/a10s/arm32/lib \
 					-lstdc++ -lelf -lacl_emulator_kernel_rt
 
 # Device Files
-DEVICE_CODE := unroll # replica or ndrange
+DEVICE_CODE := base
 DEVICE_CODE_DIR := device
 
 # Target
@@ -125,13 +125,10 @@ copyhost: host
 copydevice: device
 	$(ECHO)scp \
 		$(TARGET_DEVICE_DIR)/$(TARGET_DEVICE) \
+		$(TARGET_DEVICE_DIR)/$(DEVICE_CODE).source \
 		$(SOC_FPGA_REMOTE):$(SOC_FPGA_DIR)/.
 
-copy: host device
-	$(ECHO)scp \
-		$(TARGET_HOST_DIR)/$(TARGET_HOST) \
-		$(TARGET_HOST_DIR)/$(TARGET_DEVICE) \
-		$(SOC_FPGA_REMOTE):$(SOC_FPGA_DIR)/.
+copy: copyhost copydevice
 
 cleanhost :
 	$(ECHO)rm -f $(TARGET_HOST_DIR)/$(TARGET_HOST)
