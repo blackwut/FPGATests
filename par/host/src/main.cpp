@@ -58,7 +58,7 @@ void fill_dataset(tuple_t * dataset, const size_t N)
 void benchmark(OCL & ocl,
                const K_TYPE k_type,         // kernel type
                const size_t k_nums,         // number of kernels
-               const char * k_names[],        // kernel names
+               const char * k_names[],      // kernel names
                const size_t iterations,
                const size_t size)
 {
@@ -85,7 +85,10 @@ void benchmark(OCL & ocl,
         kernels[i] = ocl.createKernel(k_names[i]);
     }
 
-    const cl_uint batch_size = size / COMPUTE_UNITS;
+    cl_uint batch_size = size;
+    if (k_type != K_TYPE::K_BASE) {
+        batch_size /= COMPUTE_UNITS;
+    }
 
     cl_uint argi = 0;
     // source kernel
@@ -165,12 +168,24 @@ int main(int argc, char * argv[])
     volatile cl_ulong time_start;
     volatile cl_ulong time_end;
 
+    if (opt.k_base) {
+        OCL ocl;
+        time_start = current_time_ns();
+        ocl.init(P_BASE_FILENAME, opt.platform, opt.device);
+        time_end = current_time_ns();
+        cout << "    BASE init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        benchmark(ocl,
+                  K_TYPE::K_BASE, K_BASE_NUMS, K_BASE_NAMES,
+                  opt.iterations, opt.size);
+        ocl.clean();
+    }
+
     if (opt.k_unroll) {
         OCL ocl;
         time_start = current_time_ns();
         ocl.init(P_UNROLL_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "   UNROLL init took: " << setw(12) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "   UNROLL init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_UNROLL, K_UNROLL_NUMS, K_UNROLL_NAMES,
                   opt.iterations, opt.size);
@@ -182,7 +197,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_REPLICA_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "  REPLICA init took: " << setw(12) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "  REPLICA init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_REPLICA, K_REPLICA_NUMS, K_REPLICA_NAMES,
                   opt.iterations, opt.size);
@@ -194,7 +209,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_NDRANGE_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "  NDRANGE init took: " << setw(12) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "  NDRANGE init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_NDRANGE, K_NDRANGE_NUMS, K_NDRANGE_NAMES,
                   opt.iterations, opt.size);

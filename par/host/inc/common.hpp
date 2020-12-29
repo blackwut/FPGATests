@@ -3,12 +3,20 @@
 #define TUPLE_SIZE              4
 #define COMPUTE_UNITS           8
 
-
 enum K_TYPE {
+    K_BASE,
     K_UNROLL,
     K_REPLICA,
     K_NDRANGE
 };
+
+#define K_BASE_NUMS           3
+const char * K_BASE_NAMES[] {
+    "source",
+    "map",
+    "sink"
+};
+const char * P_BASE_FILENAME = "./base.aocx";
 
 
 #define K_UNROLL_NUMS           3

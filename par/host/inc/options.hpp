@@ -13,6 +13,7 @@ struct Options
     int device;
     int iterations;
     int size;
+    bool k_base;
     bool k_unroll;
     bool k_replica;
     bool k_ndrange;
@@ -22,6 +23,7 @@ struct Options
     , device(0)
     , iterations(32)
     , size(1024)
+    , k_base(false)
     , k_unroll(false)
     , k_replica(false)
     , k_ndrange(false)
@@ -29,13 +31,14 @@ struct Options
 
     void print_help()
     {
-        cout << "\t-p  --platform        Specify the OpenCL platform index      \n"
-                "\t-d  --device          Specify the OpenCL device index        \n"
-                "\t-i  --iterations      Set the number of iterations           \n"
-                "\t-n  --size            Set the number of items per iteration  \n"
-                "\t-U  --unroll          Benchmark for kernel type `Unroll`     \n"
-                "\t-R  --replica         Benchmark for kernel type `Replica`    \n"
-                "\t-N  --ndrange         Benchmark for kernel type `NDRange     \n";
+        cout << "\t-p  --platform        Specify the OpenCL platform index     \n"
+                "\t-d  --device          Specify the OpenCL device index       \n"
+                "\t-i  --iterations      Set the number of iterations          \n"
+                "\t-n  --size            Set the number of items per iteration \n"
+                "\t-B  --base            Benchmark of kernel type `Base`       \n"
+                "\t-U  --unroll          Benchmark of kernel type `Unroll`     \n"
+                "\t-R  --replica         Benchmark of kernel type `Replica`    \n"
+                "\t-N  --ndrange         Benchmark of kernel type `NDRange     \n";
         exit(1);
     }
 
@@ -43,12 +46,13 @@ struct Options
     {
         opterr = 0;
 
-        const char * const short_opts = "p:d:i:n:URN";
+        const char * const short_opts = "p:d:i:n:BURN";
         const option long_opts[] = {
                 {"platform",   optional_argument, nullptr, 'p'},
                 {"device",     optional_argument, nullptr, 'd'},
                 {"iterations", optional_argument, nullptr, 'i'},
                 {"size",       optional_argument, nullptr, 'n'},
+                {"base",       optional_argument, nullptr, 'B'},
                 {"unroll",     optional_argument, nullptr, 'U'},
                 {"replica",    optional_argument, nullptr, 'R'},
                 {"ndrange",    optional_argument, nullptr, 'N'},
@@ -92,6 +96,9 @@ struct Options
                     }
                     size = int_opt;
                     break;
+                case 'B':
+                    k_base = true;
+                    break;
                 case 'U':
                     k_unroll = true;
                     break;
@@ -110,8 +117,8 @@ struct Options
             }
         }
 
-        if (!k_unroll and !k_replica and !k_ndrange) {
-            cerr << "Please specify at least one kernel type: `--unroll`, `--replica`, `--ndrange`\n";
+        if (!k_base and !k_unroll and !k_replica and !k_ndrange) {
+            cerr << "Please specify at least one kernel type: `--base`, `--unroll`, `--replica`, `--ndrange`\n";
             exit(0);
         }
     }
