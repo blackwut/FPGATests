@@ -39,24 +39,36 @@ void map(const uint N)
         #pragma unroll
         for (uint c = 0; c < COMPUTE_UNITS; ++c) {
             _in[c] = read_channel_intel(source_map[c]);
-        }
 
-        // compute
-        tuple_map_t _tmp[COMPUTE_UNITS];
-        tuple_out_t _out[COMPUTE_UNITS];
-        #pragma unroll
-        for (uint c = 0; c < COMPUTE_UNITS; ++c) {
-            _tmp[c] = _in[c];
+            tuple_out_t _out[COMPUTE_UNITS];
+            #pragma unroll
             for (uint i = 0; i < TUPLE_SIZE; ++i) {
-                 _out[c].values[i] = sin(_tmp[c].values[i]);
+                 _out[c].values[i] = sin(_in[c].values[i]);
             }
-        }
 
-        // output
-        #pragma unroll
-        for (uint c = 0; c < COMPUTE_UNITS; ++c) {
             write_channel_intel(map_sink[c], _out[c]);
         }
+
+        // // input
+        // tuple_map_t _in[COMPUTE_UNITS];
+        // #pragma unroll
+        // for (uint c = 0; c < COMPUTE_UNITS; ++c) {
+        //     _in[c] = read_channel_intel(source_map[c]);
+        // }
+
+        // // compute
+        // #pragma unroll
+        // for (uint c = 0; c < COMPUTE_UNITS; ++c) {
+        //     for (uint i = 0; i < TUPLE_SIZE; ++i) {
+        //          _in[c].values[i] = sin(_in[c].values[i]);
+        //     }
+        // }
+
+        // // output
+        // #pragma unroll
+        // for (uint c = 0; c < COMPUTE_UNITS; ++c) {
+        //     write_channel_intel(map_sink[c], _in[c]);
+        // }
     }
 }
 

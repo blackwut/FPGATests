@@ -60,10 +60,9 @@ void map(const uint N)
             case 7: _in = read_channel_intel(source_map[7]); break;
         }
 
-        tuple_map_t _tmp = _in;
         tuple_out_t _out;
         for (uint i = 0; i < TUPLE_SIZE; ++i) {
-            _out.values[i] = sin(_tmp.values[i]);
+            _out.values[i] = sin(_in.values[i]);
         }
 
         switch (gid) {
