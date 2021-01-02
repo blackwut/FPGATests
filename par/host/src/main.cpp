@@ -185,7 +185,7 @@ void benchmark_replica_new(OCL & ocl,
     }
 
     // map kernels
-    for (int i = 0; i < k_nums - 2; ++i) {
+    for (int i = 0; i < COMPUTE_UNITS; ++i) {
         clCheckError(clSetKernelArg(kernels[i + COMPUTE_UNITS], 0, sizeof(batch_size),  &batch_size));
     }
 
