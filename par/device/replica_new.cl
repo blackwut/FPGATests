@@ -10,7 +10,7 @@ __attribute__((max_global_work_dim(0)))                                        \
 __kernel                                                                       \
 void source ## IDX (__global const tuple_in_t * restrict data, const uint N) { \
     for (uint n = 0; n < N; ++n) {                                             \
-        write_channel_intel(source_map[IDX], data[n * COMPUTE_UNITS + IDX]);   \
+        write_channel_intel(source_map[IDX], data[IDX * N + n]);   \
     }                                                                          \
 }
 
@@ -35,7 +35,7 @@ __attribute__((max_global_work_dim(0)))                                    \
 __kernel                                                                   \
 void sink ## IDX (__global tuple_out_t * restrict data, const uint N) {    \
     for (uint n = 0; n < N; ++n) {                                         \
-        data[n * COMPUTE_UNITS + IDX] = read_channel_intel(map_sink[IDX]); \
+        data[IDX * N + n] = read_channel_intel(map_sink[IDX]); \
     }                                                                      \
 }
 
