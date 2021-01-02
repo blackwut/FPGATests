@@ -144,6 +144,93 @@ void benchmark(OCL & ocl,
     delete[] queues;
 }
 
+void benchmark_replica_new(OCL & ocl,
+                           const K_TYPE k_type,         // kernel type
+                           const size_t k_nums,         // number of kernels
+                           const char * k_names[],      // kernel names
+                           const size_t iterations,
+                           const size_t size)
+{
+     // Queues
+    cl_command_queue * queues = new cl_command_queue[k_nums];
+    for (int i = 0; i < k_nums; ++i) {
+        queues[i] = ocl.createCommandQueue();
+    }
+
+     // Buffers
+    clMemory<tuple_t> * src;
+    clMemory<tuple_t> * dst;
+
+    src = new clMemShared<tuple_t>(ocl.context, queues[0], size, CL_MEM_READ_ONLY);
+    dst = new clMemShared<tuple_t>(ocl.context, queues[k_nums - 1], size, CL_MEM_WRITE_ONLY);
+    src->map(CL_MAP_WRITE);
+    dst->map(CL_MAP_READ);
+
+    fill_dataset(src->ptr, size);
+
+    // Kernels
+    cl_kernel * kernels = new cl_kernel[k_nums];
+    for (int i = 0; i < k_nums; ++i) {
+        kernels[i] = ocl.createKernel(k_names[i]);
+    }
+
+    cl_uint batch_size = size / COMPUTE_UNITS;
+
+    cl_uint argi;
+    // source kernel
+    for (int i = 0; i < COMPUTE_UNITS; ++i) {
+        argi = 0;
+        clCheckError(clSetKernelArg(kernels[i], argi++, sizeof(src->buffer), &src->buffer));
+        clCheckError(clSetKernelArg(kernels[i], argi++, sizeof(batch_size),  &batch_size));
+    }
+
+    // map kernels
+    for (int i = 0; i < k_nums - 2; ++i) {
+        clCheckError(clSetKernelArg(kernels[i + COMPUTE_UNITS], 0, sizeof(batch_size),  &batch_size));
+    }
+
+    // sink kernel
+    for (int i = 0; i < COMPUTE_UNITS; ++i) {
+        argi = 0;
+        clCheckError(clSetKernelArg(kernels[i + COMPUTE_UNITS * 2], argi++, sizeof(dst->buffer), &dst->buffer));
+        clCheckError(clSetKernelArg(kernels[i + COMPUTE_UNITS * 2], argi++, sizeof(batch_size),  &batch_size));
+    }
+
+
+    // Benchmark
+    size_t gws[3] = {1, 1, 1};
+    size_t lws[3] = {1, 1, 1};
+
+    volatile cl_ulong time_start = current_time_ns();
+    for (int i = 0; i < iterations; ++i) {
+        for (int i = 0; i < k_nums; ++i) {
+            clCheckError(clEnqueueNDRangeKernel(queues[i], kernels[i],
+                                                1, NULL, gws, lws,
+                                                0, NULL, NULL));
+        }
+    }
+    for (int i = 0; i < k_nums; ++i) clFinish(queues[i]);
+    volatile cl_ulong time_end = current_time_ns();
+
+    double elapsed_time = (time_end - time_start) / 1.0e9;
+    double throughput = (iterations * size) / elapsed_time;
+    cout << "       Elapsed Time: " << setw(4) << fixed << elapsed_time << " s\n";
+    cout << "Measured throughput: " << (int) throughput << " tuples/second\n\n";
+
+    // Releases
+    src->release();
+    dst->release();
+
+    delete src;
+    delete dst;
+
+    for (int i = 0; i < k_nums; ++i) if (kernels[i]) clReleaseKernel(kernels[i]);
+    for (int i = 0; i < k_nums; ++i) if (queues[i]) clReleaseCommandQueue(queues[i]);
+
+    delete[] kernels;
+    delete[] queues;
+}
+
 int main(int argc, char * argv[])
 {
     Options opt;
@@ -173,7 +260,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_BASE_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "    BASE init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "    BASE init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_BASE, K_BASE_NUMS, K_BASE_NAMES,
                   opt.iterations, opt.size);
@@ -185,7 +272,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_UNROLL_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "     UNROLL init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "     UNROLL init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_UNROLL, K_UNROLL_NUMS, K_UNROLL_NAMES,
                   opt.iterations, opt.size);
@@ -197,10 +284,10 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_REPLICA_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "    REPLICA init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
-        benchmark(ocl,
-                  K_TYPE::K_REPLICA, K_REPLICA_NUMS, K_REPLICA_NAMES,
-                  opt.iterations, opt.size);
+        cout << "    REPLICA init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        benchmark_replica_new(ocl,
+                              K_TYPE::K_REPLICA, K_REPLICA_NUMS, K_REPLICA_NAMES,
+                              opt.iterations, opt.size);
         ocl.clean();
     }
 
@@ -209,7 +296,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_REPLICA_NEW_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "REPLICA_NEW init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "REPLICA_NEW init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_REPLICA_NEW, K_REPLICA_NEW_NUMS, K_REPLICA_NEW_NAMES,
                   opt.iterations, opt.size);
@@ -221,7 +308,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_NDRANGE_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "    NDRANGE init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "    NDRANGE init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_NDRANGE, K_NDRANGE_NUMS, K_NDRANGE_NAMES,
                   opt.iterations, opt.size);
