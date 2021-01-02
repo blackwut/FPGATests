@@ -260,7 +260,8 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_BASE_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "    BASE init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "    Loading Bitstream: " << P_BASE_FILENAME << endl;
+        cout << "       BASE init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_BASE, K_BASE_NUMS, K_BASE_NAMES,
                   opt.iterations, opt.size);
@@ -272,6 +273,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_UNROLL_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
+        cout << "    Loading Bitstream: " << P_UNROLL_FILENAME << endl;
         cout << "     UNROLL init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_UNROLL, K_UNROLL_NUMS, K_UNROLL_NAMES,
@@ -284,10 +286,11 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_REPLICA_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
+        cout << "    Loading Bitstream: " << P_REPLICA_FILENAME << endl;
         cout << "    REPLICA init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
-        benchmark_replica_new(ocl,
-                              K_TYPE::K_REPLICA, K_REPLICA_NUMS, K_REPLICA_NAMES,
-                              opt.iterations, opt.size);
+        benchmark(ocl,
+                  K_TYPE::K_REPLICA, K_REPLICA_NUMS, K_REPLICA_NAMES,
+                  opt.iterations, opt.size);
         ocl.clean();
     }
 
@@ -296,10 +299,11 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_REPLICA_NEW_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
+        cout << "    Loading Bitstream: " << P_REPLICA_NEW_FILENAME << endl;
         cout << "REPLICA_NEW init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
-        benchmark(ocl,
-                  K_TYPE::K_REPLICA_NEW, K_REPLICA_NEW_NUMS, K_REPLICA_NEW_NAMES,
-                  opt.iterations, opt.size);
+        benchmark_replica_new(ocl,
+                              K_TYPE::K_REPLICA_NEW, K_REPLICA_NEW_NUMS, K_REPLICA_NEW_NAMES,
+                              opt.iterations, opt.size);
         ocl.clean();
     }
 
@@ -308,6 +312,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_NDRANGE_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
+        cout << "    Loading Bitstream: " << P_NDRANGE_FILENAME << endl;
         cout << "    NDRANGE init took: " << right << setw(6) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_NDRANGE, K_NDRANGE_NUMS, K_NDRANGE_NAMES,
