@@ -185,7 +185,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_UNROLL_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "   UNROLL init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "     UNROLL init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_UNROLL, K_UNROLL_NUMS, K_UNROLL_NAMES,
                   opt.iterations, opt.size);
@@ -197,9 +197,21 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_REPLICA_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "  REPLICA init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "    REPLICA init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_REPLICA, K_REPLICA_NUMS, K_REPLICA_NAMES,
+                  opt.iterations, opt.size);
+        ocl.clean();
+    }
+
+    if (opt.k_replica_new) {
+        OCL ocl;
+        time_start = current_time_ns();
+        ocl.init(P_REPLICA_NEW_FILENAME, opt.platform, opt.device);
+        time_end = current_time_ns();
+        cout << "REPLICA_NEW init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        benchmark(ocl,
+                  K_TYPE::K_REPLICA_NEW, K_REPLICA_NEW_NUMS, K_REPLICA_NEW_NAMES,
                   opt.iterations, opt.size);
         ocl.clean();
     }
@@ -209,7 +221,7 @@ int main(int argc, char * argv[])
         time_start = current_time_ns();
         ocl.init(P_NDRANGE_FILENAME, opt.platform, opt.device);
         time_end = current_time_ns();
-        cout << "  NDRANGE init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
+        cout << "    NDRANGE init took: " << right << setw(8) << fixed << (time_end - time_start) * 1.0e-9 << " s\n";
         benchmark(ocl,
                   K_TYPE::K_NDRANGE, K_NDRANGE_NUMS, K_NDRANGE_NAMES,
                   opt.iterations, opt.size);

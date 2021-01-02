@@ -7,6 +7,7 @@ enum K_TYPE {
     K_BASE,
     K_UNROLL,
     K_REPLICA,
+    K_REPLICA_NEW,
     K_NDRANGE
 };
 
@@ -42,6 +43,35 @@ const char * K_REPLICA_NAMES[] {
     "sink"
 };
 const char * P_REPLICA_FILENAME = "./replica.aocx";
+
+#define K_REPLICA_NEW_NUMS          24
+const char * K_REPLICA_NEW_NAMES[] {
+    "source0",
+    "source1",
+    "source2",
+    "source3",
+    "source4",
+    "source5",
+    "source6",
+    "source7",
+    "map0",
+    "map1",
+    "map2",
+    "map3",
+    "map4",
+    "map5",
+    "map6",
+    "map7",
+    "sink0",
+    "sink1",
+    "sink2",
+    "sink3",
+    "sink4",
+    "sink5",
+    "sink6",
+    "sink7"
+};
+const char * P_REPLICA_NEW_FILENAME = "./replica_new.aocx";
 
 
 #define K_NDRANGE_NUMS          3

@@ -16,6 +16,7 @@ struct Options
     bool k_base;
     bool k_unroll;
     bool k_replica;
+    bool k_replica_new;
     bool k_ndrange;
 
     Options()
@@ -26,6 +27,7 @@ struct Options
     , k_base(false)
     , k_unroll(false)
     , k_replica(false)
+    , k_replica_new(false)
     , k_ndrange(false)
     {}
 
@@ -35,9 +37,10 @@ struct Options
                 "\t-d  --device          Specify the OpenCL device index       \n"
                 "\t-i  --iterations      Set the number of iterations          \n"
                 "\t-n  --size            Set the number of items per iteration \n"
-                "\t-B  --base            Benchmark of kernel type `Base`       \n"
-                "\t-U  --unroll          Benchmark of kernel type `Unroll`     \n"
-                "\t-R  --replica         Benchmark of kernel type `Replica`    \n"
+                "\t-B  --base            Benchmark of kernel type `base`       \n"
+                "\t-U  --unroll          Benchmark of kernel type `unroll`     \n"
+                "\t-R  --replica         Benchmark of kernel type `replica`    \n"
+                "\t-C  --replica_new     Benchmark of kernel type `replica_new`\n"
                 "\t-N  --ndrange         Benchmark of kernel type `NDRange     \n";
         exit(1);
     }
@@ -46,18 +49,19 @@ struct Options
     {
         opterr = 0;
 
-        const char * const short_opts = "p:d:i:n:BURN";
+        const char * const short_opts = "p:d:i:n:BURCN";
         const option long_opts[] = {
-                {"platform",   optional_argument, nullptr, 'p'},
-                {"device",     optional_argument, nullptr, 'd'},
-                {"iterations", optional_argument, nullptr, 'i'},
-                {"size",       optional_argument, nullptr, 'n'},
-                {"base",       optional_argument, nullptr, 'B'},
-                {"unroll",     optional_argument, nullptr, 'U'},
-                {"replica",    optional_argument, nullptr, 'R'},
-                {"ndrange",    optional_argument, nullptr, 'N'},
-                {"help",       no_argument,       nullptr, 'h'},
-                {nullptr,      no_argument,       nullptr,   0}
+                {"platform",    optional_argument, nullptr, 'p'},
+                {"device",      optional_argument, nullptr, 'd'},
+                {"iterations",  optional_argument, nullptr, 'i'},
+                {"size",        optional_argument, nullptr, 'n'},
+                {"base",        optional_argument, nullptr, 'B'},
+                {"unroll",      optional_argument, nullptr, 'U'},
+                {"replica",     optional_argument, nullptr, 'R'},
+                {"replica_new", optional_argument, nullptr, 'C'},
+                {"ndrange",     optional_argument, nullptr, 'N'},
+                {"help",        no_argument,       nullptr, 'h'},
+                {nullptr,       no_argument,       nullptr,   0}
         };
 
         int int_opt = -1;
@@ -105,6 +109,9 @@ struct Options
                 case 'R':
                     k_replica = true;
                     break;
+                case 'C':
+                    k_replica_new = true;
+                    break;
                 case 'N':
                     k_ndrange = true;
                     break;
@@ -117,8 +124,8 @@ struct Options
             }
         }
 
-        if (!k_base and !k_unroll and !k_replica and !k_ndrange) {
-            cerr << "Please specify at least one kernel type: `--base`, `--unroll`, `--replica`, `--ndrange`\n";
+        if (!k_base and !k_unroll and !k_replica and !k_replica_new and !k_ndrange) {
+            cerr << "Please specify at least one kernel type: `--base`, `--unroll`, `--replica`, `--replica_new`, `--ndrange`\n";
             exit(0);
         }
     }
