@@ -20,14 +20,33 @@ bool fileExists(const std::string & filename)
 }
 
 // Loads a file in binary form.
-unsigned char * loadBinaryFile(const std::string & filename, size_t * size) {
-
+unsigned char * loadBinaryFile(const std::string & filename, size_t * size)
+{
     FILE * fp = fopen(filename.c_str(),"rb");
+    if (fp == NULL) {
+        std::cerr << "Cannot open binary file `" << filename << "`." << std::endl;
+        *size = 0;
+        return NULL;
+    }
+
     fseek(fp, 0, SEEK_END);
     *size = ftell(fp);
+    if (*size < 0) {
+        std::cerr << "Binary file empty." << std::endl;
+        *size = 0;
+        fclose(fp);
+        return NULL;
+    }
+
+    unsigned char * buffer = new unsigned char[*size];
     rewind(fp);
-    unsigned char * buffer = (unsigned char *)malloc(sizeof(unsigned char) * (*size));
-    fread(buffer, *size, 1, fp);
+    if (fread((void *)buffer, *size, 1, fp) == 0) {
+        delete[] buffer;
+        *size = 0;
+        fclose(fp);
+        return NULL;
+    }
+
     fclose(fp);
 
     return buffer;
@@ -49,7 +68,7 @@ std::string loadSourceFile(const std::string & filename, size_t * size) {
 
 void clCallback(const char * errinfo, const void *, size_t, void *)
 {
-    std::cerr << "Context callback: " << errinfo << "\n";
+    std::cerr << "Context callback: " << errinfo << std::endl;
 }
 
 static inline const char * clErrorToString(cl_int err) {
@@ -126,7 +145,8 @@ void _clCheckError(const char * file, int line,
     if (error != CL_SUCCESS) {
         std::cerr << "ERROR: " << clErrorToString(error) << "\n"
                   << "Location: " << file << ":" << line << "\n"
-                  << "Message: " << message << "\n";
+                  << "Message: " << message
+                  << std::endl;
         exit(error);
     }
 }
@@ -177,7 +197,7 @@ cl_platform_id clPromptPlatform()
                       << platformInfo(p, CL_PLATFORM_NAME)     << " "
                       << platformInfo(p, CL_PLATFORM_VENDOR)   << " "
                       << platformInfo(p, CL_PLATFORM_VERSION)
-              << "\n";
+                      << std::endl;
         }
 
         std::cout << "\nSelect a platform: " << std::flush;
@@ -262,7 +282,7 @@ cl_device_id clPromptDevice(cl_platform_id platform)
                       // << "\tMax Alloc. Memory: " << (deviceInfo<cl_ulong>(d, CL_DEVICE_MAX_MEM_ALLOC_SIZE) >> 20) << " MB\n"
                       // << "\tLocal Memory:      " << (deviceInfo<cl_ulong>(d, CL_DEVICE_LOCAL_MEM_SIZE) >> 10)     << " KB\n"
                       // << "\tAvailable:         " << (deviceInfo<cl_bool>(d, CL_DEVICE_AVAILABLE) ? "YES" : "NO")
-		      << "\n";
+                      << std::endl;
         }
         std::cout << "\nSelect a device: " << std::flush;
         std::cin >> selected_device;
@@ -294,7 +314,7 @@ cl_program clCreateBuildProgramFromBinary(cl_context context, const cl_device_id
     // Load the binary
     size_t size;
     const unsigned char * binary = loadBinaryFile(filename, &size);
-    if (size == 0) {
+    if (binary == NULL or size == 0) {
         clCheckErrorMsg(CL_INVALID_PROGRAM, "Failed to load binary file");
     }
 
@@ -304,14 +324,19 @@ cl_program clCreateBuildProgramFromBinary(cl_context context, const cl_device_id
     clCheckErrorMsg(status, "Failed to create program with binary");
     clCheckErrorMsg(binary_status, "Failed to load binary for device");
 
+    // It should be safe to delete the binary data
+    if (binary != NULL) delete[] binary;
+
     status = clBuildProgram(program, 1, &device, "", NULL, NULL);
     if (status != CL_SUCCESS) {
         size_t log_size;
         clCheckError(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size));
         std::vector<char> param_value(log_size);
         clCheckError(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, param_value.data(), NULL));
-        std::cout << std::string(param_value.begin(), param_value.end()) << "\n";
+        std::cout << std::string(param_value.begin(), param_value.end()) << std::endl;
         exit(-1);
+    } else {
+        std::cout << "Program built!" << std::endl;
     }
 
     return program;
@@ -346,7 +371,7 @@ cl_program clCreateBuildProgramFromSource(cl_context context, cl_device_id devic
         clCheckError(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size));
         std::vector<char> param_value(log_size);
         clCheckError(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, param_value.data(), NULL));
-        std::cout << std::string(param_value.begin(), param_value.end()) << "\n";
+        std::cout << std::string(param_value.begin(), param_value.end()) << std::endl;
         exit(-1);
     }
 
