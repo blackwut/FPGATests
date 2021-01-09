@@ -81,3 +81,13 @@ const char * K_NDRANGE_NAMES[] {
     "sink"
 };
 const char * P_NDRANGE_FILENAME = "./ndrange.aocx";
+
+
+#define K_FUSE_NUMS             3
+const char * K_FUSE_NAMES[] {
+    "source",
+    "map",
+    "sink"
+};
+const char * P_FUSE_FILENAME = "./fuse.aocx";
+

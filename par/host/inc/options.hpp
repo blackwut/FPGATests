@@ -18,6 +18,7 @@ struct Options
     bool k_replica;
     bool k_replica_new;
     bool k_ndrange;
+    bool k_fuse;
 
     Options()
     : platform(0)
@@ -29,6 +30,7 @@ struct Options
     , k_replica(false)
     , k_replica_new(false)
     , k_ndrange(false)
+    , k_fuse(false)
     {}
 
     void print_help()
@@ -41,7 +43,8 @@ struct Options
                 "\t-U  --unroll          Benchmark of kernel type `unroll`     \n"
                 "\t-R  --replica         Benchmark of kernel type `replica`    \n"
                 "\t-C  --replica_new     Benchmark of kernel type `replica_new`\n"
-                "\t-N  --ndrange         Benchmark of kernel type `NDRange     \n";
+                "\t-N  --ndrange         Benchmark of kernel type `NDRange`    \n"
+                "\t-F  --fuse            Benchmark of kernel type `fuse`       \n";
         exit(1);
     }
 
@@ -49,7 +52,7 @@ struct Options
     {
         opterr = 0;
 
-        const char * const short_opts = "p:d:i:n:BURCN";
+        const char * const short_opts = "p:d:i:n:BURCNF";
         const option long_opts[] = {
                 {"platform",    optional_argument, nullptr, 'p'},
                 {"device",      optional_argument, nullptr, 'd'},
@@ -60,6 +63,7 @@ struct Options
                 {"replica",     optional_argument, nullptr, 'R'},
                 {"replica_new", optional_argument, nullptr, 'C'},
                 {"ndrange",     optional_argument, nullptr, 'N'},
+                {"fuse",        optional_argument, nullptr, 'F'},
                 {"help",        no_argument,       nullptr, 'h'},
                 {nullptr,       no_argument,       nullptr,   0}
         };
@@ -115,6 +119,9 @@ struct Options
                 case 'N':
                     k_ndrange = true;
                     break;
+                case 'F':
+                    k_fuse = true;
+                    break;
 
                 case 'h':
                 case '?':
@@ -124,8 +131,8 @@ struct Options
             }
         }
 
-        if (!k_base and !k_unroll and !k_replica and !k_replica_new and !k_ndrange) {
-            cerr << "Please specify at least one kernel type: `--base`, `--unroll`, `--replica`, `--replica_new`, `--ndrange`\n";
+        if (!k_base and !k_unroll and !k_replica and !k_replica_new and !k_ndrange and !k_fuse) {
+            cerr << "Please specify at least one kernel type: `--base`, `--unroll`, `--replica`, `--replica_new`, `--ndrange`, `--fuse`\n";
             exit(0);
         }
     }
