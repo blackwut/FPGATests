@@ -257,8 +257,8 @@ void benchmark_fuse(OCL & ocl,
     cl_uint batch_size = size / COMPUTE_UNITS;
 
      // Buffers
-    clMemory<tuple_t> * src = new clMemShared<big_tuple_t>(ocl.context, queues[0], size, CL_MEM_READ_ONLY);
-    clMemory<tuple_t> * dst = new clMemShared<big_tuple_t>(ocl.context, queues[k_nums - 1], size, CL_MEM_WRITE_ONLY);
+    clMemory<big_tuple_t> * src = new clMemShared<big_tuple_t>(ocl.context, queues[0], size, CL_MEM_READ_ONLY);
+    clMemory<big_tuple_t> * dst = new clMemShared<big_tuple_t>(ocl.context, queues[k_nums - 1], size, CL_MEM_WRITE_ONLY);
 
     src->map(CL_MAP_WRITE);
     dst->map(CL_MAP_READ);
