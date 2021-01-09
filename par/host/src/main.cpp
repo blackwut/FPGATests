@@ -56,9 +56,9 @@ void fill_dataset(tuple_t * dataset, const size_t N)
 }
 
 // creates tuples and returns the total number of spikes
-void fill_big_dataset(big_tuple_t * dataset, const size_t N)
+void fill_big_dataset(big_tuple_t * dataset, const size_t size)
 {
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < size; ++i) {
         for (size_t j = 0; j < COMPUTE_UNITS; ++j) {
             random_fill(dataset[i].ts[j].values, TUPLE_SIZE);
         }
@@ -257,11 +257,9 @@ void benchmark_fuse(OCL & ocl,
     cl_uint batch_size = size / COMPUTE_UNITS;
 
      // Buffers
-    clMemory<tuple_t> * src;
-    clMemory<tuple_t> * dst;
+    clMemory<tuple_t> * src = new clMemShared<big_tuple_t>(ocl.context, queues[0], size, CL_MEM_READ_ONLY);
+    clMemory<tuple_t> * dst = new clMemShared<big_tuple_t>(ocl.context, queues[k_nums - 1], size, CL_MEM_WRITE_ONLY);
 
-    src = new clMemShared<big_tuple_t>(ocl.context, queues[0], size, CL_MEM_READ_ONLY);
-    dst = new clMemShared<big_tuple_t>(ocl.context, queues[k_nums - 1], size, CL_MEM_WRITE_ONLY);
     src->map(CL_MAP_WRITE);
     dst->map(CL_MAP_READ);
 

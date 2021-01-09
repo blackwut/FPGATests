@@ -8,7 +8,8 @@ enum K_TYPE {
     K_UNROLL,
     K_REPLICA,
     K_REPLICA_NEW,
-    K_NDRANGE
+    K_NDRANGE,
+    K_FUSE
 };
 
 #define K_BASE_NUMS           3
