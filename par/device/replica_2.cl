@@ -1,7 +1,7 @@
 #pragma OPENCL EXTENSION cl_intel_channels : enable
 #define CHANNEL_DEPTH   16
 #define TUPLE_SIZE      4
-#define COMPUTE_UNITS   8
+#define COMPUTE_UNITS   2
 
 #define KERNEL_MAP(IDX)                                         \
 __kernel                                                        \
@@ -48,24 +48,6 @@ void source(__global const tuple_in_t * restrict data, const uint N)
 #endif
 #if (1 < COMPUTE_UNITS)
     KERNEL_MAP(1)
-#endif
-#if (2 < COMPUTE_UNITS)
-    KERNEL_MAP(2)
-#endif
-#if (3 < COMPUTE_UNITS)
-    KERNEL_MAP(3)
-#endif
-#if (4 < COMPUTE_UNITS)
-    KERNEL_MAP(4)
-#endif
-#if (5 < COMPUTE_UNITS)
-    KERNEL_MAP(5)
-#endif
-#if (6 < COMPUTE_UNITS)
-    KERNEL_MAP(6)
-#endif
-#if (7 < COMPUTE_UNITS)
-    KERNEL_MAP(7)
 #endif
 
 
