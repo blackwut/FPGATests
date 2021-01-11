@@ -1,7 +1,11 @@
 #pragma once
+
+#include <limits>
 #include <cstdint>
+#include <cmath>
 #include <random>
 #include <sys/time.h>
+
 
 inline uint64_t current_time_ns() __attribute__((always_inline));
 inline uint64_t current_time_ns()
@@ -21,10 +25,21 @@ inline float next_float()
     return dist(gen);
 }
 
-inline void random_fill(float * ptr, int n) __attribute__((always_inline));
-inline void random_fill(float * ptr, int n)
+
+inline size_t round_up() __attribute__((always_inline));
+inline size_t round_up(size_t size, size_t round)
 {
-    for (int i = 0; i < n; ++i) {
-        ptr[i] = next_float();
-    }
+    return ((size + round - 1) / round) * round;
+}
+
+inline bool approximatelyEqual() __attribute__((always_inline));
+inline bool approximatelyEqual(float a, float b, float epsilon = std::numeric_limits<float>::epsilon())
+{
+    return fabs(a - b) <= ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * epsilon);
+}
+
+inline bool essentiallyEqual() __attribute__((always_inline));
+inline bool essentiallyEqual(float a, float b, float epsilon = std::numeric_limits<float>::epsilon())
+{
+    return fabs(a - b) <= ( (fabs(a) > fabs(b) ? fabs(b) : fabs(a)) * epsilon);
 }
