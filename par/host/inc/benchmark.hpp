@@ -126,7 +126,7 @@ struct Benchmark
 
         // OpenCL init
         OCL ocl;
-        ocl.init(aocx_filename, platform_id, device_id);
+        ocl.init(aocx_filename, platform_id, device_id, true);
 
          // Queues
         std::vector<cl_command_queue> queues(k_nums);
