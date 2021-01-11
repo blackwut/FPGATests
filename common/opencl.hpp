@@ -30,25 +30,26 @@ unsigned char * loadBinaryFile(const std::string & filename, size_t * size)
     }
 
     fseek(fp, 0, SEEK_END);
-    *size = ftell(fp);
-    if (*size < 0) {
+    long fs = ftell(fp);
+    if (fs < 0) {
         std::cerr << "Binary file empty." << std::endl;
-        *size = 0;
         fclose(fp);
+        *size = 0;
         return NULL;
     }
 
-    unsigned char * buffer = new unsigned char[*size];
+    unsigned char * buffer = new unsigned char[fs];
     rewind(fp);
-    if (fread((void *)buffer, *size, 1, fp) == 0) {
-        delete[] buffer;
-        *size = 0;
+    if (fread((void *)buffer, fs, 1, fp) == 0) {
         fclose(fp);
+        *size = 0;
+        delete[] buffer;
         return NULL;
     }
 
     fclose(fp);
 
+    *size = (size_t)fs;
     return buffer;
 }
 
