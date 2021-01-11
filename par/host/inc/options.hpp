@@ -14,37 +14,34 @@ struct Options
     int iterations;
     int size;
     bool k_base;
-    bool k_unroll;
-    bool k_replica;
-    bool k_replica_new;
-    bool k_ndrange;
-    bool k_fuse;
+    int k_unroll;
+    int k_replica;
+    int k_ndrange;
+    int k_fuse;
 
     Options()
     : platform(0)
     , device(0)
-    , iterations(32)
+    , iterations(4)
     , size(1024)
     , k_base(false)
-    , k_unroll(false)
-    , k_replica(false)
-    , k_replica_new(false)
-    , k_ndrange(false)
-    , k_fuse(false)
+    , k_unroll(-1)
+    , k_replica(-1)
+    , k_ndrange(-1)
+    , k_fuse(-1)
     {}
 
     void print_help()
     {
-        cout << "\t-p  --platform        Specify the OpenCL platform index     \n"
-                "\t-d  --device          Specify the OpenCL device index       \n"
+        cout << "\t-p  --platform id     Specify the OpenCL platform index     \n"
+                "\t-d  --device id       Specify the OpenCL device index       \n"
                 "\t-i  --iterations      Set the number of iterations          \n"
                 "\t-n  --size            Set the number of items per iteration \n"
                 "\t-B  --base            Benchmark of kernel type `base`       \n"
-                "\t-U  --unroll          Benchmark of kernel type `unroll`     \n"
-                "\t-R  --replica         Benchmark of kernel type `replica`    \n"
-                "\t-C  --replica_new     Benchmark of kernel type `replica_new`\n"
-                "\t-N  --ndrange         Benchmark of kernel type `NDRange`    \n"
-                "\t-F  --fuse            Benchmark of kernel type `fuse`       \n";
+                "\t-U  --unroll N        Benchmark of kernel type `unroll`     \n"
+                "\t-R  --replica N       Benchmark of kernel type `replica`    \n"
+                "\t-N  --ndrange N       Benchmark of kernel type `ndrange`    \n"
+                "\t-F  --fuse N          Benchmark of kernel type `fuse`       \n";
         exit(1);
     }
 
@@ -52,7 +49,7 @@ struct Options
     {
         opterr = 0;
 
-        const char * const short_opts = "p:d:i:n:BURCNF";
+        const char * const short_opts = "p:d:i:n:BU:R:N:F:";
         const option long_opts[] = {
                 {"platform",    optional_argument, nullptr, 'p'},
                 {"device",      optional_argument, nullptr, 'd'},
@@ -61,7 +58,6 @@ struct Options
                 {"base",        optional_argument, nullptr, 'B'},
                 {"unroll",      optional_argument, nullptr, 'U'},
                 {"replica",     optional_argument, nullptr, 'R'},
-                {"replica_new", optional_argument, nullptr, 'C'},
                 {"ndrange",     optional_argument, nullptr, 'N'},
                 {"fuse",        optional_argument, nullptr, 'F'},
                 {"help",        no_argument,       nullptr, 'h'},
@@ -108,19 +104,36 @@ struct Options
                     k_base = true;
                     break;
                 case 'U':
-                    k_unroll = true;
+                    int_opt = stoi(optarg);
+                    if (!(int_opt == 2 or int_opt == 4 or int_opt == 8)) {
+                        cerr << "Please enter a valid number of CUs (2, 4, 8)." << endl;
+                        exit(1);
+                    }
+                    k_unroll = int_opt;
                     break;
                 case 'R':
-                    k_replica = true;
-                    break;
-                case 'C':
-                    k_replica_new = true;
+                    int_opt = stoi(optarg);
+                    if (!(int_opt == 2 or int_opt == 4 or int_opt == 8)) {
+                        cerr << "Please enter a valid number of CUs (2, 4, 8)." << endl;
+                        exit(1);
+                    }
+                    k_replica = int_opt;
                     break;
                 case 'N':
-                    k_ndrange = true;
+                    int_opt = stoi(optarg);
+                    if (!(int_opt == 2 or int_opt == 4 or int_opt == 8)) {
+                        cerr << "Please enter a valid number of CUs (2, 4, 8)." << endl;
+                        exit(1);
+                    }
+                    k_ndrange = int_opt;
                     break;
                 case 'F':
-                    k_fuse = true;
+                    int_opt = stoi(optarg);
+                    if (!(int_opt == 2 or int_opt == 4 or int_opt == 8)) {
+                        cerr << "Please enter a valid number of CUs (2, 4, 8)." << endl;
+                        exit(1);
+                    }
+                    k_fuse = int_opt;
                     break;
 
                 case 'h':
@@ -131,8 +144,8 @@ struct Options
             }
         }
 
-        if (!k_base and !k_unroll and !k_replica and !k_replica_new and !k_ndrange and !k_fuse) {
-            cerr << "Please specify at least one kernel type: `--base`, `--unroll`, `--replica`, `--replica_new`, `--ndrange`, `--fuse`\n";
+        if (!k_base and !k_unroll and !k_replica and !k_ndrange and !k_fuse) {
+            cerr << "Please specify at least one kernel type: `--base`, `--unroll`, `--replica`, `--ndrange`, `--fuse`\n";
             exit(0);
         }
     }
