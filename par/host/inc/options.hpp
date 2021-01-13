@@ -18,6 +18,7 @@ struct Options
     int k_replica;
     int k_ndrange;
     int k_fuse;
+    bool no_global;
 
     Options()
     : platform(0)
@@ -29,6 +30,7 @@ struct Options
     , k_replica(-1)
     , k_ndrange(-1)
     , k_fuse(-1)
+    , no_global(false)
     {}
 
     void print_help()
@@ -41,7 +43,8 @@ struct Options
                 "\t-U  --unroll N        Benchmark of kernel type `unroll`     \n"
                 "\t-R  --replica N       Benchmark of kernel type `replica`    \n"
                 "\t-N  --ndrange N       Benchmark of kernel type `ndrange`    \n"
-                "\t-F  --fuse N          Benchmark of kernel type `fuse`       \n";
+                "\t-F  --fuse N          Benchmark of kernel type `fuse`       \n"
+                "\t-G  --no_global       Tuples are generated directly by FPGA \n";
         exit(1);
     }
 
@@ -49,7 +52,7 @@ struct Options
     {
         opterr = 0;
 
-        const char * const short_opts = "p:d:i:n:BU:R:N:F:";
+        const char * const short_opts = "p:d:i:n:BU:R:N:F:G";
         const option long_opts[] = {
                 {"platform",    optional_argument, nullptr, 'p'},
                 {"device",      optional_argument, nullptr, 'd'},
@@ -60,6 +63,7 @@ struct Options
                 {"replica",     optional_argument, nullptr, 'R'},
                 {"ndrange",     optional_argument, nullptr, 'N'},
                 {"fuse",        optional_argument, nullptr, 'F'},
+                {"no_global",   optional_argument, nullptr, 'G'},
                 {"help",        no_argument,       nullptr, 'h'},
                 {nullptr,       no_argument,       nullptr,   0}
         };
@@ -134,6 +138,9 @@ struct Options
                         exit(1);
                     }
                     k_fuse = int_opt;
+                    break;
+                case 'G':
+                    no_global = true;
                     break;
 
                 case 'h':

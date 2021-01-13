@@ -40,7 +40,7 @@ struct Benchmark
     , batch_size(batch_size)
     {}
 
-    void prepare()
+    void prepare(bool no_global = false)
     {
         if (batch_size % parallelism) {
             std::cout << "Items per iteration has been rounded to be a multiple of parallelism: " << parallelism << "\n";
@@ -49,7 +49,7 @@ struct Benchmark
 
         size_t total_items = iterations * batch_size;
         double mem_batch = batch_size * sizeof(tuple_t) / (double)(1 << 20);
-        double mem_usage = 2 * mem_batch;
+        double mem_usage = (no_global ? 0 : (2 * mem_batch));
         std::cout << COUT_HEADER << "Iterations: "   << COUT_INTEGER << iterations  << "\n"
                   << COUT_HEADER << "Batch Items: "  << COUT_INTEGER << batch_size  << " items\n"
                   << COUT_HEADER << "Total Items: "  << COUT_INTEGER << total_items << " items\n"
@@ -67,7 +67,7 @@ struct Benchmark
         }
 
         if (kernel_type != K_TYPE::K_BASE) {
-            aocx_filename = "./" + benchmark_name + "_" + std::to_string(parallelism) + ".aocx";
+            aocx_filename = "./" + benchmark_name + "_" + std::to_string(parallelism) + (no_global ? "_nog" : "") + ".aocx";
         } else {
             aocx_filename = "./" + benchmark_name + ".aocx";
         }
@@ -115,9 +115,9 @@ struct Benchmark
         return true;
     }
 
-    void start_and_wait(int platform_id = -1, int device_id = -1)
+    void start_and_wait(int platform_id = -1, int device_id = -1, bool no_global = false)
     {
-        prepare();
+        prepare(no_global);
         const size_t k_nums = kernel_names.size();
 
         std::cout << COUT_HEADER << "Name: " << benchmark_name << "\n"
@@ -135,12 +135,17 @@ struct Benchmark
         }
 
          // Buffers
-        clMemory<tuple_t> * src = new clMemShared<tuple_t>(ocl.context, queues[0],          batch_size, CL_MEM_READ_ONLY);
-        clMemory<tuple_t> * dst = new clMemShared<tuple_t>(ocl.context, queues[k_nums - 1], batch_size, CL_MEM_WRITE_ONLY);
-        src->map(CL_MAP_WRITE);
-        dst->map(CL_MAP_READ);
+        clMemory<tuple_t> * src = NULL;
+        clMemory<tuple_t> * dst = NULL;
 
-        fill_dataset(src->ptr, batch_size);
+        if (!no_global) {
+            src = new clMemShared<tuple_t>(ocl.context, queues[0],          batch_size, CL_MEM_READ_ONLY);
+            dst = new clMemShared<tuple_t>(ocl.context, queues[k_nums - 1], batch_size, CL_MEM_WRITE_ONLY);
+            src->map(CL_MAP_WRITE);
+            dst->map(CL_MAP_READ);
+
+            fill_dataset(src->ptr, batch_size);
+        }
 
         // Kernels
         std::vector<cl_kernel> kernels(k_nums);
@@ -155,7 +160,7 @@ struct Benchmark
 
         cl_uint argi = 0;
         // source kernel
-        clCheckError(clSetKernelArg(kernels[0], argi++, sizeof(src->buffer), &src->buffer));
+        if (!no_global) clCheckError(clSetKernelArg(kernels[0], argi++, sizeof(src->buffer), &src->buffer));
         clCheckError(clSetKernelArg(kernels[0], argi++, sizeof(size),  &size));
 
         // map kernels
@@ -165,7 +170,7 @@ struct Benchmark
 
         // sink kernel
         argi = 0;
-        clCheckError(clSetKernelArg(kernels[k_nums - 1], argi++, sizeof(dst->buffer), &dst->buffer));
+        if (!no_global) clCheckError(clSetKernelArg(kernels[k_nums - 1], argi++, sizeof(dst->buffer), &dst->buffer));
         clCheckError(clSetKernelArg(kernels[k_nums - 1], argi++, sizeof(size),  &size));
 
 
@@ -188,22 +193,22 @@ struct Benchmark
         for (size_t i = 0; i < k_nums; ++i) clFinish(queues[i]);
         volatile cl_ulong time_end = current_time_ns();
 
-        if (!check_results(src->ptr, dst->ptr, batch_size)) {
-            std::cout << "ATTENTION!!! CHECKING RESULTS FAILED!!! " << std::endl;
-        }
-
         double elapsed_time = (time_end - time_start) / 1.0e9;
         double throughput = (iterations * batch_size) / elapsed_time;
         std::cout << COUT_HEADER << "Elapsed Time: " << COUT_FLOAT   << elapsed_time    << " s\n"
                   << COUT_HEADER << "Throughput: "   << COUT_INTEGER << (int)throughput << " tuples/second\n"
                   << std::endl;
 
-        // Releases
-        src->release();
-        dst->release();
+        if (!no_global and !check_results(src->ptr, dst->ptr, batch_size)) {
+            std::cout << "ATTENTION!!! CHECKING RESULTS FAILED!!! " << std::endl;
+        }
 
-        delete src;
-        delete dst;
+        // Releases
+        if (src) src->release();
+        if (dst) dst->release();
+
+        if (src) delete src;
+        if (dst) delete dst;
 
         for (size_t i = 0; i < k_nums; ++i) if (kernels[i]) clReleaseKernel(kernels[i]);
         for (size_t i = 0; i < k_nums; ++i) if (queues[i]) clReleaseCommandQueue(queues[i]);
