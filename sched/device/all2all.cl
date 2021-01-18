@@ -118,10 +118,10 @@ CL_AUTORUN CAT(map, IDX)()
             tuple_t t;
             switch (c) {
                 case 0:
-                    t = read_channel_nb_intel(g_m[(0 + IDX) % PAR_G][IDX], &valid);
+                    t = read_channel_nb_intel(g_m[0][IDX], &valid);
                     break;
                 case 1:
-                    t = read_channel_nb_intel(g_m[(1 + IDX) % PAR_G][IDX], &valid);
+                    t = read_channel_nb_intel(g_m[1][IDX], &valid);
                     break;
             }
 
@@ -173,10 +173,10 @@ CL_AUTORUN CAT(map, IDX)()
             tuple_t t;
             switch (c) {
                 case 0:
-                    t = read_channel_nb_intel(g_m[(0 + IDX) % PAR_G][IDX], &valid);
+                    t = read_channel_nb_intel(g_m[0][IDX], &valid);
                     break;
                 case 1:
-                    t = read_channel_nb_intel(g_m[(1 + IDX) % PAR_G][IDX], &valid);
+                    t = read_channel_nb_intel(g_m[1][IDX], &valid);
                     break;
             }
 
@@ -228,10 +228,10 @@ CL_AUTORUN CAT(map, IDX)()
             tuple_t t;
             switch (c) {
                 case 0:
-                    t = read_channel_nb_intel(g_m[(0 + IDX) % PAR_G][IDX], &valid);
+                    t = read_channel_nb_intel(g_m[0][IDX], &valid);
                     break;
                 case 1:
-                    t = read_channel_nb_intel(g_m[(1 + IDX) % PAR_G][IDX], &valid);
+                    t = read_channel_nb_intel(g_m[1][IDX], &valid);
                     break;
             }
 
@@ -290,13 +290,13 @@ CL_SINGLE_TASK CAT(sink, IDX)(__global float * restrict data, __global uint * re
         tuple_t t;
         switch (c) {
             case 0:
-                t = read_channel_nb_intel(m_s[(0 + IDX) % PAR_M][IDX], &valid);
+                t = read_channel_nb_intel(m_s[0][IDX], &valid);
                 break;
             case 1:
-                t = read_channel_nb_intel(m_s[(1 + IDX) % PAR_M][IDX], &valid);
+                t = read_channel_nb_intel(m_s[1][IDX], &valid);
                 break;
             case 2:
-                t = read_channel_nb_intel(m_s[(2 + IDX) % PAR_M][IDX], &valid);
+                t = read_channel_nb_intel(m_s[2][IDX], &valid);
                 break;
         }
 
@@ -337,13 +337,13 @@ CL_SINGLE_TASK CAT(sink, IDX)(__global float * restrict data, __global uint * re
         tuple_t t;
         switch (c) {
             case 0:
-                t = read_channel_nb_intel(m_s[(0 + IDX) % PAR_M][IDX], &valid);
+                t = read_channel_nb_intel(m_s[0][IDX], &valid);
                 break;
             case 1:
-                t = read_channel_nb_intel(m_s[(1 + IDX) % PAR_M][IDX], &valid);
+                t = read_channel_nb_intel(m_s[1][IDX], &valid);
                 break;
             case 2:
-                t = read_channel_nb_intel(m_s[(2 + IDX) % PAR_M][IDX], &valid);
+                t = read_channel_nb_intel(m_s[2][IDX], &valid);
                 break;
         }
 
