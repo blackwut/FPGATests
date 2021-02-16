@@ -90,6 +90,50 @@ CL_SINGLE_TASK CAT(worker, IDX)(const uint N)
     }
 }
 
+#undef  IDX
+#define IDX 4
+CL_SINGLE_TASK CAT(worker, IDX)(const uint N)
+{
+    for (uint n = 0; n < N; ++n) {
+        int v = read_channel_intel(s_m[IDX]);
+        v += 1;
+        write_channel_intel(m_s[IDX], v);
+    }
+}
+
+#undef  IDX
+#define IDX 5
+CL_SINGLE_TASK CAT(worker, IDX)(const uint N)
+{
+    for (uint n = 0; n < N; ++n) {
+        int v = read_channel_intel(s_m[IDX]);
+        v += 1;
+        write_channel_intel(m_s[IDX], v);
+    }
+}
+
+#undef  IDX
+#define IDX 6
+CL_SINGLE_TASK CAT(worker, IDX)(const uint N)
+{
+    for (uint n = 0; n < N; ++n) {
+        int v = read_channel_intel(s_m[IDX]);
+        v += 1;
+        write_channel_intel(m_s[IDX], v);
+    }
+}
+
+#undef  IDX
+#define IDX 7
+CL_SINGLE_TASK CAT(worker, IDX)(const uint N)
+{
+    for (uint n = 0; n < N; ++n) {
+        int v = read_channel_intel(s_m[IDX]);
+        v += 1;
+        write_channel_intel(m_s[IDX], v);
+    }
+}
+
 //------------------------------------------------------------------------------
 //
 //  COLLECTOR
