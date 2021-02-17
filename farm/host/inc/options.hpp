@@ -19,17 +19,17 @@ struct Options
     : size(1024)
     , cpu(0)
     , fpga(0)
-    , platform(0)
-    , device(0)
+    , platform(-1)
+    , device(-1)
     {}
 
     void print_help()
     {
-        cout << "\t-n  --size                Set the number of items               \n"
-             << "\t-c  --cpu  N (1, 4, 8)    Perform benchmark on CPU with FastFlow\n"
-             << "\t-f  --fpga N (1, 4, 8)    Perform benchmark on FPGA with OpenCL \n"
-             << "\t-p  --platform id         Specify the OpenCL platform index     \n"
-             << "\t-d  --device id           Specify the OpenCL device index       \n"
+        cout << "\t-n  --size                    Set the number of items               \n"
+             << "\t-c  --cpu  N (1, 4, 8)        Perform benchmark on CPU with FastFlow\n"
+             << "\t-f  --fpga N (1, 4, 8, 16)    Perform benchmark on FPGA with OpenCL \n"
+             << "\t-p  --platform id             Specify the OpenCL platform index     \n"
+             << "\t-d  --device id               Specify the OpenCL device index       \n"
              << endl;
         exit(1);
     }
@@ -101,13 +101,13 @@ struct Options
             }
         }
 
-        if (cpu != 0 and cpu != 1 and cpu != 4 and cpu != 8) {
-            cerr << "Please use 1, 4, or 8 as --cpu argument!\n";
+        if (cpu != 0 and cpu != 1 and cpu != 2 and cpu != 4 and cpu != 8 and cpu != 16) {
+            cerr << "Please use 1, 2, 4, 8 or 16 as --cpu argument!\n";
             exit(-1);
         }
 
-        if (fpga != 0 and fpga != 1 and fpga != 4 and fpga != 8) {
-            cerr << "Please use 1, 4, or 8 as --fpga argument!\n";
+        if (fpga != 0 and fpga != 1 and fpga != 2 and fpga != 4 and fpga != 8) {
+            cerr << "Please use 1, 2, 4, or 8 as --fpga argument!\n";
             exit(-1);
         }
     }

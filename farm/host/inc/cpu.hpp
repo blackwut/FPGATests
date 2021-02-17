@@ -59,10 +59,10 @@ struct CPU
     {
         cout << "CPU Test started with " << workers << " workers!" << endl;
 
-        size_t N = round_up(size, workers);
+        size_t ec_size = round_up(size, workers);
 
-        Emitter E(workers, N);
-        Collector C(N);
+        Emitter E(workers, ec_size);
+        Collector C(ec_size);
         vector< unique_ptr<ff_node> > W;
         
         for(size_t i = 0; i < workers;++i) {
@@ -75,12 +75,12 @@ struct CPU
             abort();
         }
 
-        double elapsed_time = farm.ffTime();
-        double throughput = (N * sizeof(int)) / elapsed_time;
+        double elapsed_time = farm.ffTime() / 1.0e3;
+        double throughput = ec_size / elapsed_time;
 
-        cout << COUT_HEADER << "Items: "        << COUT_INTEGER << N               << "\n"
-             << COUT_HEADER << "Elapsed Time: " << COUT_FLOAT   << elapsed_time    << " s\n"
-             << COUT_HEADER << "Throughput: "   << COUT_INTEGER << (int)throughput << " incr/s\n"
+        cout << COUT_HEADER << "Items: "        << COUT_INTEGER << ec_size          << "\n"
+             << COUT_HEADER << "Elapsed Time: " << COUT_FLOAT   << elapsed_time     << " s\n"
+             << COUT_HEADER << "Throughput: "   << COUT_INTEGER << (long)throughput << " incr/s\n"
              << endl;
     }
 };

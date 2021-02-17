@@ -25,7 +25,7 @@ struct FPGA
         for (size_t i = 0; i < workers; ++i) {
             kernel_names.push_back("worker" + to_string(i));
         }
-        kernel_names.push_back("sink");
+        kernel_names.push_back("collector");
         const size_t k_nums = kernel_names.size();
 
         // OpenCL init
@@ -50,7 +50,7 @@ struct FPGA
 
         // emitter
         argi = 0;
-        clCheckError(clSetKernelArg(kernels[i], argi++, sizeof(ec_size), &ec_size));
+        clCheckError(clSetKernelArg(kernels[0], argi++, sizeof(ec_size), &ec_size));
 
         // workers
         for (size_t i = 0; i < workers; ++i) {
@@ -60,7 +60,7 @@ struct FPGA
 
         // collector
         argi = 0;
-        clCheckError(clSetKernelArg(kernels[workers + 1], argi++, sizeof(ec_size), &ec_size));
+        clCheckError(clSetKernelArg(kernels[1 + workers], argi++, sizeof(ec_size), &ec_size));
 
 
         // benchmark
@@ -77,10 +77,10 @@ struct FPGA
         volatile cl_ulong time_end = current_time_ns();
 
         double elapsed_time = (time_end - time_start) / 1.0e9;
-        double throughput = size / elapsed_time;
+        double throughput = ec_size / elapsed_time;
         cout << COUT_HEADER << "Items: "        << COUT_INTEGER << ec_size         << "\n"
              << COUT_HEADER << "Elapsed Time: " << COUT_FLOAT   << elapsed_time    << " s\n"
-             << COUT_HEADER << "Throughput: "   << COUT_INTEGER << (int)throughput << " incr/s\n"
+             << COUT_HEADER << "Throughput: "   << COUT_INTEGER << (long)throughput << " incr/s\n"
              << endl;
 
         // Releases
