@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-
 #include "common.hpp"
 #include "utils.hpp"
 #include "ocl.hpp"
@@ -33,31 +32,38 @@ struct FPGA
         OCL ocl;
         ocl.init(aocx_filename, platform_id, device_id, true);
 
-         // Queues
+        // queues
         vector<cl_command_queue> queues(k_nums);
         for (size_t i = 0; i < k_nums; ++i) {
             queues[i] = ocl.createCommandQueue();
         }
 
+        // kernels
+        vector<cl_kernel> kernels(k_nums);
+        for (size_t i = 0; i < k_nums; ++i) {
+            kernels[i] = ocl.createKernel(kernel_names[i]);
+        }
 
         cl_uint argi;                               // argument index
         cl_uint ec_size = round_up(size, workers);  // emitter/collector size
-        cl_uint w_size = u_size / workers;          // worker size
+        cl_uint w_size = ec_size / workers;          // worker size
 
+        // emitter
         argi = 0;
         clCheckError(clSetKernelArg(kernels[i], argi++, sizeof(ec_size), &ec_size));
 
+        // workers
         for (size_t i = 0; i < workers; ++i) {
             argi = 0;
             clCheckError(clSetKernelArg(kernels[i + 1], argi++, sizeof(w_size), &w_size));
         }
 
-        // sink kernels
+        // collector
         argi = 0;
         clCheckError(clSetKernelArg(kernels[workers + 1], argi++, sizeof(ec_size), &ec_size));
 
 
-        // Benchmark
+        // benchmark
         size_t gws[3] = {1, 1, 1};
         size_t lws[3] = {1, 1, 1};
 
