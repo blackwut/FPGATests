@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <sys/stat.h>
 #include <ctime>
 
@@ -65,6 +66,13 @@ std::string loadSourceFile(const std::string & filename, size_t * size) {
     buffer.assign(std::istreambuf_iterator<char>(f), {});
     *size = buffer.size();
     return buffer;
+}
+
+bool isEmulator()
+{
+    char * emu = NULL;
+    emu = getenv("CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA");
+    return (emu != NULL);
 }
 
 void clCallback(const char * errinfo, const void *, size_t, void *)
@@ -179,7 +187,7 @@ cl_platform_id clSelectPlatform(int selected_platform)
 {
     const auto platforms = clGetPlatforms();
     if (selected_platform < 0 or size_t(selected_platform) >= platforms.size()) {
-        std::cerr << "ERROR: Platform #" << selected_platform << "does not exist\n";
+        std::cerr << "ERROR: Platform #" << selected_platform << " does not exist\n";
         exit(-1);
     }
 
@@ -381,19 +389,18 @@ cl_program clCreateBuildProgramFromSource(cl_context context, cl_device_id devic
 
 void clWriteAutorunKernelProfilingData(cl_device_id device, cl_program program)
 {
-    cl_int status = clGetProfileDataDeviceIntelFPGA(device,     // device_id
-                                                    program,    // program
-                                                    CL_TRUE,    // read_enqueue_kernels
-                                                    CL_TRUE,    // read_auto_enqueued
-                                                    CL_TRUE,    // clear_counters_after_readback
-                                                    0,          // param_value_size
-                                                    NULL,       // param_value
-                                                    NULL,       // param_value_size_ret
-                                                    NULL);      // errcode_ret
-    // cl_int (*get_profile_fn)(cl_device_id, cl_program, cl_bool,cl_bool,cl_bool,size_t, void *,size_t *,cl_int *);
-    // get_profile_fn = (cl_int (*) (cl_device_id, cl_program, cl_bool,cl_bool,cl_bool,size_t, void *,size_t *,cl_int *))clGetExtensionFunctionAddress("clGetProfileDataDeviceIntelFPGA");
-    // cl_int status = (cl_int)(*get_profile_fn) (device, program, false, true, true, 0, NULL, NULL,  NULL);
-    clCheckErrorMsg(status, "Failed to write Autorun Kernels profiling data");
+    if (!isEmulator()) {
+        cl_int status = clGetProfileDataDeviceIntelFPGA(device,     // device_id
+                                                        program,    // program
+                                                        CL_TRUE,    // read_enqueue_kernels
+                                                        CL_TRUE,    // read_auto_enqueued
+                                                        CL_TRUE,    // clear_counters_after_readback
+                                                        0,          // param_value_size
+                                                        NULL,       // param_value
+                                                        NULL,       // param_value_size_ret
+                                                        NULL);      // errcode_ret
+        clCheckErrorMsg(status, "Failed to write Autorun Kernels profiling data");
+    }
 }
 
 cl_ulong clTimeBetweenEventsNS(cl_event start, cl_event end)
