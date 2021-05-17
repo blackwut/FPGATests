@@ -35,8 +35,17 @@ __kernel void
 {% macro declare_functions(node_functions) -%}
 {% for f in node_functions %}
 
-{% include f %}
+{% include f with context %}
 
+{% endfor %}
+{%- endmacro %}
+
+{% macro declare_flatmap_functions(nodes) -%}
+{% for node in nodes %}
+{% if node.node_type.value == nodeType.FLAT_MAP.value %}
+
+{% include node.flat_map with context %}
+{% endif %}
 {% endfor %}
 {%- endmacro %}
 

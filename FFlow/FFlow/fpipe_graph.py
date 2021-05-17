@@ -1,7 +1,22 @@
 import sys
 from os import path
-from futils import previous_current_next, read_template_file
-from fnode import FChannel, FNode, FNodeType, FGatheringMode, FDispatchingMode
+from futils import previous_current_next, read_template_file, generate_flat_map_code
+from fnode import FChannel, FNode, FNodeType, FGatheringMode, FDispatchingMode, FMemoryType
+
+
+def generate_new_code_flat_map(code_dir, filename):
+
+    file = open(path.join(code_dir, filename), mode='r')
+    content = file.read()
+    file.close()
+
+    new_filename = path.join(code_dir, 'tmp', 'tmp_' + filename)
+
+    with open(new_filename, 'w+') as f:
+        new_code = generate_flat_map_code(content)
+        f.write(new_code)
+
+    return 'tmp_' + filename
 
 
 class FPipeGraph:
@@ -61,7 +76,10 @@ class FPipeGraph:
         for n in nodes:
             filename = n.name + '.c'
             if path.isfile(path.join(self.source_code_dir, filename)):
-                node_functions.append(filename)
+                if n.node_type == FNodeType.FLAT_MAP:
+                    n.flat_map = generate_new_code_flat_map(self.source_code_dir, filename)
+                else:
+                    node_functions.append(filename)
 
         # Includes
         includes = ['tuples.c']
@@ -71,6 +89,7 @@ class FPipeGraph:
         result = template.render(nodeType=FNodeType,
                                  dispatchingMode=FDispatchingMode,
                                  gatheringMode=FGatheringMode,
+                                 memoryType=FMemoryType,
                                  channels=channels,
                                  nodes=nodes,
                                  includes=includes,

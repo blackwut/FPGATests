@@ -22,6 +22,24 @@ class FGatheringMode(Enum):
 #     BOTH = 4    # process tuple and global memory
 
 
+class FMemoryType(Enum):
+    PRIVATE = 1
+    LOCAL = 2
+    GLOBAL = 3
+
+
+class FMemory:
+    def __init__(self,
+                 memory_type: FMemoryType,
+                 data_type: str,
+                 name: str,
+                 size: int):
+        self.memory_type = memory_type
+        self.data_type = data_type
+        self.name = name
+        self.size = size
+
+
 class FChannel:
     def __init__(self,
                  data_type: str,
@@ -40,18 +58,20 @@ class FChannel:
         self.j = self.i_degree
 
 
-
 class FNodeType(Enum):
     NONE = 1
     SOURCE = 2
     MAP = 3
-    FILTER = 4
-    SINK = 5
+    FLAT_MAP = 4
+    FILTER = 5
+    SINK = 6
 
 
 class FNode:
     i_degree = 0
     o_degree = 0
+
+    memories = []
 
     def __init__(self,
                  name: str = '',
@@ -70,3 +90,10 @@ class FNode:
 
     def set_o_channel(self, channel: FChannel):
         self.o_channel = channel
+
+    def add_memory(self,
+                   memory_type: FMemoryType,
+                   data_type: str,
+                   name: str,
+                   size: int):
+        self.memories.append(FMemory(memory_type, data_type, name, size))
