@@ -26,10 +26,10 @@ def generate_flat_map_code(code):
 
 def read_template_file(source_code_dir, path):
     templates = os.path.join(os.path.dirname(__file__), "templates")
-    sources = os.path.join(source_code_dir)
-    print('sources:' + sources)
-    sources_tmp = os.path.join(sources, 'tmp')
-    loader = jinja.FileSystemLoader(searchpath=[templates, sources, sources_tmp])
+    sources = source_code_dir
+    loader = jinja.FileSystemLoader(searchpath=[templates, sources])
+    # sources_tmp = os.path.join(sources, 'tmp')
+    # loader = jinja.FileSystemLoader(searchpath=[templates, sources, sources_tmp])
 
     logging.basicConfig()
     logger = logging.getLogger('logger')

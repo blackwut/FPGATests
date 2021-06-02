@@ -1,4 +1,4 @@
-{% import 'channels.cl' as ch with context %}
+{% import 'channel.cl' as ch with context %}
 {% import 'tuple.cl' as tuple with context %}
 {% import 'source.cl' as source with context %}
 {% import 'sink.cl' as sink with context %}

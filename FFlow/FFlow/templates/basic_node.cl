@@ -1,15 +1,15 @@
-{% import 'channels.cl' as ch with context %}
-{% import 'memory.cl' as mem with context %}
+{% import 'channel.cl' as ch with context %}
+{% import 'buffer.cl' as buff with context %}
 
 {% macro process_tuple(node, idx, tuple_var_in, tuple_var_out) -%}
 {% if node.node_type.value == nodeType.FLAT_MAP.value %}
 {% if node.dispatching_mode.value in [dispatchingMode.RR_BLOCKING.value, dispatchingMode.RR_NON_BLOCKING.value] %}
-{{node.name}}_function({{tuple_var_in}}.data, idx, &w);
+{{node.name}}_function({{tuple_var_in}}.data, idx, &w {{-", " if node.buffers|count > 0 else "" }}{{buff.use_all(node)}});
 {% else %}
-{{node.name}}_function({{tuple_var_in}}.data, idx);
+{{node.name}}_function({{tuple_var_in}}.data, idx {{-", " if node.buffers|count > 0 else "" }}{{buff.use_all(node)}});
 {%- endif %}
 {% else %}
-{{node.o_channel.tuple_type}} {{tuple_var_out}} = create_{{node.o_channel.tuple_type}}({{node.name}}_function({{tuple_var_in}}.data));
+{{node.o_channel.tuple_type}} {{tuple_var_out}} = create_{{node.o_channel.tuple_type}}({{node.name}}_function({{tuple_var_in}}.data {{-", " if node.buffers|count > 0 else "" }}{{buff.use_all(node)}}));
 
 {{ ch.dispatch_tuple(node, idx, 'w', 'tuple_out', true) }}
 {%- endif %}
@@ -18,7 +18,7 @@
 
 {% macro basic_node(node, idx) -%}
 
-CL_SINGLE_TASK {{node.name}}_{{ idx }}({{ mem.declare_global_memories(node) }})
+CL_SINGLE_TASK {{node.name}}_{{ idx }}({{ buff.declare_global(node) }})
 {
     const uint idx = {{idx}};
 {% if node.i_degree > 1 %}
@@ -30,8 +30,8 @@ CL_SINGLE_TASK {{node.name}}_{{ idx }}({{ mem.declare_global_memories(node) }})
     uint EOS = 0;
     bool done = false;
 
-{{- mem.declare_local_memories(node)|indent(4) }}
-{{- mem.declare_private_memories(node)|indent(4) }}
+    {{ buff.declare_local(node) }}
+    {{ buff.declare_private(node) }}
 
     while (!done) {
         {{node.i_channel.tuple_type}} tuple_in;

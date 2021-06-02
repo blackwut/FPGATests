@@ -1,20 +1,29 @@
-{% import 'channels.cl' as ch with context %}
+{% import 'channel.cl' as ch with context %}
 
 
 {% macro process_tuple(node, idx, tuple_var_in, tuple_var_out) -%}
+    data[n] = {{ tuple_var_in }}.data;
+    n++;
+
+    if (n == N) {
+        filled = true;
+    }
 {%- endmacro %}
 
 
 
 {% macro sink(node, idx) -%}
 
-CL_SINGLE_TASK {{node.name}}_{{idx}}()
+CL_SINGLE_TASK {{node.name}}_{{idx}}(__global data_t * restrict data, __global uint * restrict received, __global uint * restrict shutdown, const uint last_EOS, const uint N)
 {
     uint r = {{idx}} % {{node.i_degree}};
-    uint EOS = 0;
+    uint EOS = last_EOS;
     bool done = false;
+    uint n = 0;
+    bool filled = false;
 
-    while (!done) {
+
+    while (!filled && !done) {
         {{node.i_channel.tuple_type}} tuple_in;
         {% if node.gathering_mode.value == gatheringMode.BLOCKING.value %}
         {{ch.switch_read_blocking(node, idx, 'r', 'tuple_in', '', true, process_tuple)|indent(8)}}
@@ -22,6 +31,9 @@ CL_SINGLE_TASK {{node.name}}_{{idx}}()
         {{ch.switch_read_non_blocking(node, idx, 'r', 'tuple_in', '', true, process_tuple)|indent(8)}}
         {% endif %}
     }
+
+    *received = n;
+    *shutdown = EOS;
 }
 
 {%- endmacro %}

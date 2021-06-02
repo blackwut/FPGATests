@@ -1,4 +1,4 @@
-{% import 'channels.cl' as ch with context %}
+{% import 'channel.cl' as ch with context %}
 {% import 'utils.cl' as ut with context %}
 {{ ch.enable_channels(channels) }}
 

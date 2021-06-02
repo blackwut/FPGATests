@@ -1,8 +1,8 @@
-import os, sys
-sys.path.insert(0, os.path.join(os.path.pardir, 'FFlow'))
+import os
+import sys
+sys.path.insert(0, os.path.pardir)
 
-from fpipe_graph import FPipeGraph
-from fnode import FNode, FNodeType, FGatheringMode, FDispatchingMode
+from FFlow import *
 
 
 p_source = FNode('source', 1,

@@ -1,33 +1,35 @@
 import sys
 from os import path
-from futils import previous_current_next, read_template_file, generate_flat_map_code
-from fnode import FChannel, FNode, FNodeType, FGatheringMode, FDispatchingMode, FMemoryType
+from shutil import copyfile
+from .futils import *
+from .fnode import *
+from .fchannel import *
 
 
-def generate_new_code_flat_map(code_dir, filename):
+def generate_new_code_flat_map(filename):
 
-    file = open(path.join(code_dir, filename), mode='r')
+    file = open(filename, mode='r')
     content = file.read()
     file.close()
 
-    new_filename = path.join(code_dir, 'tmp', 'tmp_' + filename)
+    new_filename = filename + '.tmp'
 
     with open(new_filename, 'w+') as f:
         new_code = generate_flat_map_code(content)
         f.write(new_code)
 
-    return 'tmp_' + filename
+    return new_filename
 
 
 class FPipeGraph:
 
-    source_code_dir = ''
-    source = None
-    internal_nodes = []
-    sink = None
-
     def __init__(self, source_code_dir: str):
         self.source_code_dir = source_code_dir
+        self.source = None
+        self.internal_nodes = []
+        self.sink = None
+
+        self.prepare_folders()
 
     def add_source(self, source: FNode):
         if source.node_type == FNodeType.SOURCE:
@@ -47,8 +49,30 @@ class FPipeGraph:
         else:
             sys.exit("Supplied node is not of type SOURCE")
 
-    def generate_device(self, data_type: str = 'data_t'):
+    def prepare_folders(self):
+        """
+        app
+        ├── common
+        ├── device
+        │   └── nodes
+        ├── host
+        ├── includes
+        └── sources
+        """
+        self.base_dir = self.source_code_dir
+        self.common_dir = path.join(self.source_code_dir, 'common')
+        self.includes_dir = path.join(self.source_code_dir, 'includes')
+        self.host_dir = path.join(self.source_code_dir, 'host')
+        self.device_dir = path.join(self.source_code_dir, 'device')
+        self.nodes_dir = path.join(self.device_dir, 'nodes')
 
+        folders = [self.base_dir, self.common_dir, self.includes_dir, self.host_dir, self.device_dir, self.nodes_dir]
+
+        for folder in folders:
+            if not path.isdir(folder):
+                os.mkdir(folder)
+
+    def generate_device(self, data_type: str = 'data_t', rewrite=False):
         nodes = [self.source]
         nodes.extend(self.internal_nodes)
         nodes.append(self.sink)
@@ -74,24 +98,91 @@ class FPipeGraph:
         # Creates functions
         node_functions = []
         for n in nodes:
-            filename = n.name + '.c'
-            if path.isfile(path.join(self.source_code_dir, filename)):
+            filename = path.join(self.nodes_dir, n.name + '.c')
+            if path.isfile(filename):
                 if n.node_type == FNodeType.FLAT_MAP:
-                    n.flat_map = generate_new_code_flat_map(self.source_code_dir, filename)
+                    n.flat_map = generate_new_code_flat_map(filename)
                 else:
                     node_functions.append(filename)
 
         # Includes
-        includes = ['tuples.c']
+        includes = [path.join(self.includes_dir, 'tuples.h')]
 
-        template = read_template_file(self.source_code_dir, 'device.cl')
+        template = read_template_file('.', 'device.cl')
 
         result = template.render(nodeType=FNodeType,
                                  dispatchingMode=FDispatchingMode,
                                  gatheringMode=FGatheringMode,
-                                 memoryType=FMemoryType,
+                                 bufferType=FBufferType,
                                  channels=channels,
                                  nodes=nodes,
                                  includes=includes,
                                  node_functions=node_functions)
-        print(result)
+        for n in nodes:
+            if n.node_type == FNodeType.FLAT_MAP:
+                if path.isfile(n.flat_map):
+                    os.remove(n.flat_map)
+
+        filename = path.join(self.device_dir, 'device.cl')
+        if not path.isfile(filename) or rewrite:
+            file = open(filename, mode='w')
+            file.write(result)
+            file.close()
+
+    def generate_tuples(self, tuples=[]):
+        filename = path.join(self.includes_dir, 'tuples.h')
+        if not path.isfile(filename):
+            result = ''
+            for t in tuples:
+                result += ("typedef struct {\n"
+                           "    uint key;\n"
+                           "    float value;\n"
+                           "} " + t + ";")
+            file = open(filename, mode='x')
+            file.write(result)
+            file.close()
+
+    def generate_functions(self):
+        nodes = self.internal_nodes
+
+        template = read_template_file(self.source_code_dir, 'function.cl')
+
+        for n in nodes:
+            filename = path.join(self.nodes_dir, n.name + '.c')
+            if not path.isfile(filename):
+                file = open(filename, mode='x')
+                result = template.render(node=n,
+                                         tuple_type_in='data_t',
+                                         tuple_type_out='data_t',
+                                         nodeType=FNodeType,
+                                         dispatchingMode=FDispatchingMode,
+                                         bufferType=FBufferType)
+                file.write(result)
+                file.close()
+
+    def generate_host(self, rewrite=False):
+        template = read_template_file(self.source_code_dir, 'host.cpp')
+        filename = path.join(self.host_dir, 'host.cpp')
+        if not path.isfile(filename) or rewrite:
+            file = open(filename, mode='w')
+            result = template.render(nodes=self.internal_nodes,
+                                     source=self.source,
+                                     sink=self.sink)
+            file.write(result)
+            file.close()
+
+        common_dir = os.path.join(os.path.dirname(__file__), "src", 'common')
+        files = ['buffers.hpp', 'common.hpp', 'ocl.hpp', 'opencl.hpp', 'utils.hpp']
+
+        for f in files:
+            src_path = path.join(common_dir, f)
+            dest_path = path.join(self.common_dir, f)
+            if not path.isfile(dest_path):
+                copyfile(src_path, dest_path)
+
+        # Makefile
+        make_src_dir = os.path.join(os.path.dirname(__file__), "src", 'Makefile')
+        make_dst_dir = path.join(self.base_dir, 'Makefile')
+
+        if not path.isfile(make_dst_dir):
+            copyfile(make_src_dir, make_dst_dir)

@@ -56,21 +56,21 @@ struct OCL
         return kernel;
     }
 
-    vector<cl_kernel> createKernels(const vector<Node> nodes)
+    std::vector<cl_kernel> createKernels(const std::vector<Node> nodes)
     {
-        vector<cl_kernel> kernels;
+        std::vector<cl_kernel> kernels;
 
         for (const Node & k : nodes) {
             for (size_t i = 0; i < k.parallelism; ++i) {
-                kernels.push_back(createKernel(k.basename + to_string(i)));
+                kernels.push_back(createKernel(k.basename + std::to_string(i)));
             }
         }
         return kernels;
     }
 
-    vector<cl_command_queue> getCommandQueues(const size_t n)
+    std::vector<cl_command_queue> getCommandQueues(const size_t n)
     {
-        vector<cl_command_queue> queues(n);
+        std::vector<cl_command_queue> queues(n);
         for (size_t i = 0; i < n; ++i) {
             queues[i] = createCommandQueue();
         }

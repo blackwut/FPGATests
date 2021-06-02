@@ -1,8 +1,8 @@
-{% import 'channels.cl' as ch with context %}
+{% import 'channel.cl' as ch with context %}
 
 {% macro source(node, idx) -%}
 
-CL_SINGLE_TASK {{node.name}}_{{idx}}(__global const {{node.o_channel.data_type}} * restrict data, const uint N)
+CL_SINGLE_TASK {{node.name}}_{{idx}}(__global const {{node.o_channel.data_type}} * restrict data, const uint N, const uint shutdown)
 {
     {% if node.dispatching_mode.value in [dispatchingMode.RR_BLOCKING.value, dispatchingMode.RR_NON_BLOCKING.value] %}
     uint w = {{idx}} % {{node.o_degree}};
@@ -14,7 +14,9 @@ CL_SINGLE_TASK {{node.name}}_{{idx}}(__global const {{node.o_channel.data_type}}
         {{ ch.dispatch_tuple(node, idx, 'w', 'tuple_out', true)|indent(8) }}
     }
 
-    {{ch.write_broadcast_EOS(node, idx)|indent(4)}}
+    if (shutdown == 1) {
+        {{ch.write_broadcast_EOS(node, idx)|indent(8)}}
+    }
 }
 
 {%- endmacro %}

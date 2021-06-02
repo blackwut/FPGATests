@@ -210,3 +210,5 @@ const {{ node.o_channel.tuple_type }} tuple_eos = create_{{ node.o_channel.tuple
 {{ write_broadcast(node, idx, tuple_out_var) }}
 {% endif %}
 {%- endmacro %}
+
+{# TODO: check incr because it need 1 cycle more to update properly "r" variable #}
