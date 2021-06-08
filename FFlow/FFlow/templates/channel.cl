@@ -5,46 +5,44 @@
 {%- endmacro %}
 
 // Basic Definitions
-
-{% macro channel(c, i, j) -%}
-{{c.name}}{% if c.i > 1 %}[{{i}}]{% endif %}{% if c.j > 1 %}[{{j}}]{% endif %}
-{%- endmacro %}
-
-
 {% macro declare_channels(channels) -%}
 {% for c in channels %}
-channel {{c.tuple_type}} {{channel(c, c.i, c.j)}} __attribute__((depth({{c.depth}})));
+{{ c.declare() }};
 {% endfor %}
 {%- endmacro %}
 
 
 {% macro incr_var(var, max) -%}
-if ({{var}} < {{max}}) {
-    {{var}} += 1;
-} else {
+if ({{var}} == {{max - 1}}) {
     {{var}} = 0;
+} else {
+    {{var}} += 1;
 }
 {%- endmacro %}
 
 
-// Gathering Methods
+// -----------------------------------------------------------------------------
+//
+// Gather template functions
+//
+// -----------------------------------------------------------------------------
 
-{% macro single_read_blocking(node, idx, tuple_var_in, tuple_var_out, process_tuple) -%}
-{{ tuple_var_in }} = read_channel_intel({{ channel(node.i_channel, i, idx) }});
+{% macro single_read_blocking(node, idx, t_in, t_out, process_tuple) -%}
+{{ t_in }} = {{ node.read(i, idx) }};
 
-if ({{ tuple_var_in }}.EOS) {
+if ({{ t_in }}.EOS) {
     done = true;
 } else {
-    {{ process_tuple(node, idx, tuple_var_in, tuple_var_out)|indent(4) }}
+    {{ process_tuple(node, idx, t_in, t_out) | indent(4) }}
 }
 {%- endmacro %}
 
 
 
-{% macro switch_read_blocking(node, idx, switch_var, tuple_var_in, tuple_var_out, incr, process_tuple) -%}
+{% macro switch_read_blocking(node, idx, switch_var, t_in, t_out, incr, process_tuple) -%}
 switch ({{ switch_var }}) {
 {% for i in range(node.i_degree): %}
-    case {{ i }}: {{ tuple_var_in }} = read_channel_intel({{ channel(node.i_channel, i, idx) }}); break;
+    case {{i}}: {{ t_in }} = {{ node.read(i, idx) }}; break;
 {% endfor %}
 }
 
@@ -52,35 +50,36 @@ switch ({{ switch_var }}) {
 {{ incr_var(switch_var, node.i_degree) }}
 {% endif %}
 
-if ({{ tuple_var_in }}.EOS) {
+if ({{ t_in }}.EOS) {
     done = true;
 } else {
-    {{ process_tuple(node, idx, tuple_var_in, tuple_var_out)|indent(4) }}
+    {{ process_tuple(node, idx, t_in, t_out) | indent(4) }}
 }
 {%- endmacro %}
 
 
-
-{% macro single_read_non_blocking(node, idx, tuple_var_in, tuple_var_out, process_tuple) -%}
+// UNUSED
+{% macro single_read_non_blocking(node, idx, t_in, t_out, process_tuple) -%}
 bool valid = false;
-{{ tuple_var_in }} = read_channel_nb_intel({{ channel(node.i_channel, i, idx) }}, &valid);
+
+{{ t_in }} = {{ node.read_nb(i, idx, 'valid') }};
 
 if (valid) {
-    if ({{ tuple_var_in }}.EOS) {
+    if ({{ t_in }}.EOS) {
         done = true;
     } else {
-        {{ process_tuple(node, idx, tuple_var_in, tuple_var_out)|indent(8) }}
+        {{ process_tuple(node, idx, t_in, t_out) | indent(8) }}
     }
 }
 {%- endmacro %}
 
 
-
-{% macro switch_read_non_blocking(node, idx, switch_var, tuple_var_in, tuple_var_out, incr, process_tuple) -%}
+{% macro switch_read_non_blocking(node, idx, switch_var, t_in, t_out, incr, process_tuple) -%}
 bool valid = false;
+
 switch ({{ switch_var }}) {
 {% for i in range(node.i_degree): %}
-    case {{ i }}: {{ tuple_var_in }} = read_channel_nb_intel({{ channel(node.i_channel, i, idx) }}, &valid); break;
+    case {{i}}: {{ t_in }} = {{ node.read_nb(i, idx, 'valid') }}; break;
 {% endfor %}
 }
 
@@ -89,29 +88,48 @@ switch ({{ switch_var }}) {
 {% endif %}
 
 if (valid) {
-    if ({{ tuple_var_in }}.EOS) {
+    if ({{ t_in }}.EOS) {
         done = (++EOS == {{ node.i_degree }});
     } else {
-        {{ process_tuple(node, idx, tuple_var_in, tuple_var_out)|indent(8) }}
+        {{ process_tuple(node, idx, t_in, t_out) | indent(8) }}
     }
 }
 {%- endmacro %}
 
 
+{% macro gather_tuple(node, idx, r, t_in, t_out, process_tuple) -%}
+{% if node.gather_mode == gatherKind.BLOCKING %}
+{% if node.i_degree > 1 %}
+{{ switch_read_blocking(node, idx, r, t_in, t_out, true, process_tuple) }}
+{% else %}
+{{ single_read_blocking(node, idx, t_in, t_out, process_tuple) }}
+{% endif %}
+{% else %}
+{% if node.i_degree > 1 %}
+{{ switch_read_non_blocking(node, idx, r, t_in, t_out, true, process_tuple) }}
+{% else %}
+{{ single_read_blocking(node, idx, t_in, t_out, process_tuple) }}
+{% endif %}
+{% endif %}
+{%- endmacro %}
 
 
-// Dispatching Methods
+// -----------------------------------------------------------------------------
+//
+// Dispatch template functions
+//
+// -----------------------------------------------------------------------------
 
-{% macro single_write_rr_blocking(node, idx, tuple_out_var) -%}
-write_channel_intel({{ channel(node.o_channel, idx, i) }}, {{ tuple_out_var }});
+{% macro single_write_rr_blocking(node, idx, t_out) -%}
+{{ node.write(idx, None, t_out) }};
 {%- endmacro %}
 
 
 
-{% macro switch_write_rr_blocking(node, idx, switch_var, tuple_out_var, incr) -%}
+{% macro switch_write_rr_blocking(node, idx, switch_var, t_out, incr) -%}
 switch ({{ switch_var }}) {
     {% for i in range(node.o_degree): %}
-    case {{ i }}: write_channel_intel({{ channel(node.o_channel, idx, i) }}, {{ tuple_out_var }}); break;
+    case {{i}}: {{ node.write(idx, i, t_out) }}; break;
     {% endfor %}
 }
 
@@ -122,29 +140,23 @@ switch ({{ switch_var }}) {
 
 
 
-{% macro single_write_rr_non_blocking(node, idx, tuple_out_var) -%}
-{#
-bool success = false;
-do {
-    success = write_channel_nb_intel({{ channel(node.o_channel, idx, i) }}, {{ tuple_out_var }});
-} while (!success);
-#}
-{{ single_write_rr_blocking(node, idx, tuple_out_var) }}
+{% macro single_write_rr_non_blocking(node, idx, t_out) -%}
+{{ single_write_rr_blocking(node, idx, t_out) }}
 {%- endmacro %}
 
 
 
-{% macro switch_write_rr_non_blocking(node, idx, switch_var, tuple_out_var, incr) -%}
+{% macro switch_write_rr_non_blocking(node, idx, switch_var, t_out, incr) -%}
 bool success = false;
 do {
     switch ({{switch_var}}) {
     {% for i in range(node.o_degree): %}
-        case {{ i }}: if (!success) success = write_channel_nb_intel({{ channel(node.o_channel, idx, i) }}, {{ tuple_out_var }}); break;
+        case {{i}}: if (!success) success = {{ node.write_nb(idx, i, t_out) }}; break;
     {% endfor %}
     }
 
     {% if incr %}
-    {{ incr_var(switch_var, node.o_degree)|indent(4) }}
+    {{ incr_var(switch_var, node.o_degree) | indent(4) }}
     {% endif %}
 
 } while (!success);
@@ -152,63 +164,60 @@ do {
 
 
 
-{% macro single_write_keyby(node, idx, tuple_out_var) -%}
-const uint w = {{ tuple_out_var }}.data.key % {{ node.o_degree }};
-{{ single_write_rr_blocking(node, idx, tuple_out_var) }}
+{% macro single_write_keyby(node, idx, t_out) -%}
+{{ single_write_rr_blocking(node, idx, t_out) }}
 {%- endmacro %}
 
 
 
-{% macro switch_write_keyby(node, idx, tuple_out_var) -%}
-const uint w = {{ tuple_out_var }}.data.key % {{ node.o_degree }};
+{% macro switch_write_keyby(node, idx, t_out) -%}
+const uint w = {{ node.o_datatype }}_getKey({{ t_out }}.data) % {{ node.o_degree }};
 switch (w) {
 {% for i in range(node.o_degree): %}
-    case {{ i }}: write_channel_intel({{ channel(node.o_channel, idx, i) }}, {{ tuple_out_var }}); break;
+    case {{i}}: {{ node.write(idx, i, t_out) }}; break;
 {% endfor %}
 }
 {%- endmacro %}
 
 
-{% macro write_broadcast(node, idx, tuple_out_var) -%}
-{{ '#pragma unroll' }}
+{% macro write_broadcast(node, idx, t_out) -%}
+#pragma unroll
 for (uint i = 0; i < {{ node.o_degree }}; ++i) {
-    write_channel_intel({{ channel(node.o_channel, idx, 'i') }}, {{ tuple_out_var }});
+    {{ node.write(idx, 'i', t_out) }};
 }
 {%- endmacro %}
 
 
 {% macro write_broadcast_EOS(node, idx) -%}
-const {{ node.o_channel.tuple_type }} tuple_eos = create_{{ node.o_channel.tuple_type }}_EOS();
+const {{ node.o_channel.tupletype }} tuple_eos = create_{{ node.o_channel.tupletype }}_EOS();
 {{ write_broadcast(node, idx, 'tuple_eos') }}
 {%- endmacro %}
 
 
 
-{% macro dispatch_tuple(node, idx, switch_var, tuple_out_var, incr) -%}
-{% if node.dispatching_mode.value == dispatchingMode.RR_BLOCKING.value %}
+{% macro dispatch_tuple(node, idx, switch_var, t_out, incr) -%}
+{% if node.dispatch_mode == dispatchKind.RR_BLOCKING %}
 {% if node.o_degree > 1 %}
-{{ switch_write_rr_blocking(node, idx, switch_var, tuple_out_var, incr) }}
+{{ switch_write_rr_blocking(node, idx, switch_var, t_out, incr) }}
 {% else %}
-{{ single_write_rr_blocking(node, idx, tuple_out_var) }}
+{{ single_write_rr_blocking(node, idx, t_out) }}
 {% endif %}
 {% endif %}
-{% if node.dispatching_mode.value == dispatchingMode.RR_NON_BLOCKING.value %}
+{% if node.dispatch_mode == dispatchKind.RR_NON_BLOCKING %}
 {% if node.o_degree > 1 %}
-{{ switch_write_rr_non_blocking(node, idx, switch_var, tuple_out_var, incr) }}
+{{ switch_write_rr_non_blocking(node, idx, switch_var, t_out, incr) }}
 {% else %}
-{{ single_write_rr_non_blocking(node, idx, tuple_out_var) }}
+{{ single_write_rr_non_blocking(node, idx, t_out) }}
 {% endif %}
 {% endif %}
-{% if node.dispatching_mode.value == dispatchingMode.KEYBY.value %}
+{% if node.dispatch_mode == dispatchKind.KEYBY %}
 {% if node.o_degree > 1 %}
-{{ switch_write_keyby(node, idx, tuple_out_var) }}
+{{ switch_write_keyby(node, idx, t_out) }}
 {% else %}
-{{ single_write_keyby(node, idx, tuple_out_var) }}
+{{ single_write_keyby(node, idx, t_out) }}
 {% endif %}
 {% endif %}
-{% if node.dispatching_mode.value == dispatchingMode.BROADCAST.value %}
-{{ write_broadcast(node, idx, tuple_out_var) }}
+{% if node.dispatch_mode == dispatchKind.BROADCAST %}
+{{ write_broadcast(node, idx, t_out) }}
 {% endif %}
 {%- endmacro %}
-
-{# TODO: check incr because it need 1 cycle more to update properly "r" variable #}

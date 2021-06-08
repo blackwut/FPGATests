@@ -6,26 +6,32 @@ from FFlow import *
 
 
 p_source = FNode('source', 1,
-                 FNodeType.SOURCE,
-                 FGatheringMode.NONE,
-                 FDispatchingMode.RR_NON_BLOCKING)
+                 FNodeKind.SOURCE,
+                 FGatherMode.NONE,
+                 FDispatchMode.RR_NON_BLOCKING,
+                 'data_t')
 p_flat_map = FNode('flatmap', 3,
-                   FNodeType.FLAT_MAP,
-                   FGatheringMode.BLOCKING,
-                   FDispatchingMode.RR_NON_BLOCKING)
+                   FNodeKind.FLAT_MAP,
+                   FGatherMode.BLOCKING,
+                   FDispatchMode.RR_NON_BLOCKING,
+                   'data_t')
 p_counter = FNode('counter', 2,
-                  FNodeType.MAP,
-                  FGatheringMode.NON_BLOCKING,
-                  FDispatchingMode.RR_NON_BLOCKING)
+                  FNodeKind.MAP,
+                  FGatherMode.NON_BLOCKING,
+                  FDispatchMode.RR_NON_BLOCKING,
+                  'data_t')
 p_sink = FNode('sink', 1,
-               FNodeType.SINK,
-               FGatheringMode.NON_BLOCKING,
-               FDispatchingMode.NONE)
+               FNodeKind.SINK,
+               FGatherMode.NON_BLOCKING,
+               FDispatchMode.NONE,
+               'data_t')
 
-graph = FPipeGraph('./wc_source')
+graph = FPipeGraph('wc_source', 'data_t')
 graph.add_source(p_source)
 graph.add(p_flat_map)
 graph.add(p_counter)
 graph.add_sink(p_sink)
 
+graph.finalize()
 graph.generate_device()
+graph.generate_host()

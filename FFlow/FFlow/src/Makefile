@@ -29,7 +29,6 @@ LIB_DIRS :=
 TARGET_HOST := host
 TARGET_HOST_DIR := bin
 
-
 # ------------------------------------------------------------------------------
 # Device
 # ------------------------------------------------------------------------------
@@ -51,7 +50,7 @@ DEVICE_CODE_DIR := device
 DEVICE_INCLUDES := $(DEVICE_CODE)/nodes includes
 
 # Target
-TARGET_DEVICE := device.aocx
+TARGET_DEVICE := device
 TARGET_DEVICE_DIR := bin
 
 
@@ -94,13 +93,13 @@ ECHO := @
 endif
 
 
-.PHONY: host device cleanhost cleandevice clean
+.PHONY: host device report cleanhost cleandevice clean
 
-$(shell mkdir -p $(TARGET_HOST_DIR) $(TARGET_DEVICE_DIR))
+$(shell mkdir -p $(TARGET_HOST_DIR) $(TARGET_DEVICE_DIR) $(REPORT_DIR))
 
 host: $(SRCS) $(INCS) $(TARGET_HOST_DIR)
 	$(ECHO)$(CXX) $(CXXFLAGS) \
-		$(foreach D,$(INC_DIRS),-I$D) \
+		$(foreach D,$(DEVICE_INCLUDES),-I$D) \
 		$(AOCL_COMPILE_CONFIG) \
 		$(SRCS) \
 		$(AOCL_LINK_CONFIG) \
@@ -110,8 +109,16 @@ host: $(SRCS) $(INCS) $(TARGET_HOST_DIR)
 device: $(DEVICE_CODE_DIR)/$(DEVICE_CODE).cl $(TARGET_DEVICE_DIR)
 	$(ECHO)$(AOC) $(AOC_BOARD) $(AOC_FLAGS) \
 		$(DEVICE_CODE_DIR)/$(DEVICE_CODE).cl \
-		-I $(DEVICE_INCLUDES) \
+		$(foreach D,$(DEVICE_INCLUDES),-I$D) \
+		-o $(TARGET_DEVICE_DIR)/$(TARGET_DEVICE).aocx
+
+report: $(DEVICE_CODE_DIR)/$(DEVICE_CODE).cl $(TARGET_DEVICE_DIR)
+	$(ECHO)rm -rf $(REPORT_DIR)
+	$(ECHO)$(AOC) -rtl -report\
+		$(DEVICE_CODE_DIR)/$(DEVICE_CODE).cl \
+		$(foreach D,$(DEVICE_INCLUDES),-I$D) \
 		-o $(TARGET_DEVICE_DIR)/$(TARGET_DEVICE)
+	$(ECHO)echo "You can find the report at $(TARGET_DEVICE_DIR)/$(TARGET_DEVICE)/reports/report.html"
 
 cleanhost :
 	$(ECHO)rm -f $(TARGET_HOST_DIR)/$(TARGET_HOST)

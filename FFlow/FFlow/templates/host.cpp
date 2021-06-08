@@ -37,8 +37,8 @@ public:
 END Blocking QUEUE*/
 
 
-{% set source_data_type = source.o_channel.data_type %}
-{% set sink_data_type = sink.i_channel.data_type %}
+{% set source_data_type = source.i_datatype %}
+{% set sink_data_type = sink.o_datatype %}
 
 {% for node in nodes %}
 #define {{ node.declare_macro_par() }}
@@ -101,7 +101,7 @@ struct FSource
             cl_int status;
             buffers[i] = clCreateBuffer(ocl.context,
                                         CL_MEM_HOST_WRITE_ONLY | CL_MEM_READ_ONLY,
-                                        max_batch_size * sizeof({{ source_data_type}}),
+                                        max_batch_size * sizeof({{ source_data_type }}),
                                         NULL, &status);
             clCheckErrorMsg(status, "Failed to create clBuffer");
         }
@@ -223,7 +223,7 @@ struct FSink
         cl_int status;
         buffer = clCreateBuffer(ocl.context,
                                 CL_MEM_HOST_READ_ONLY | CL_MEM_WRITE_ONLY,
-                                max_batch_size * sizeof({{ source_data_type }}),
+                                max_batch_size * sizeof({{ sink_data_type }}),
                                 NULL, &status);
         clCheckErrorMsg(status, "Failed to create buffer");
         received_d = clCreateBuffer(ocl.context,
@@ -246,10 +246,10 @@ struct FSink
         // set kernel args
         cl_uint argi = 0;
         clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(buffer), &buffer));
-        clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(received_d), &received_d));
-        clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(shutdown_d), &shutdown_d));
         clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(last_EOS), &last_EOS));
         clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(batch_size), &batch_size));
+        clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(received_d), &received_d));
+        clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(shutdown_d), &shutdown_d));
 
         // launch kernel
         const size_t gws[3] = {1, 1, 1};
@@ -345,7 +345,7 @@ struct FPipeGraph
         // KERNEL NAMES
         {% for node in nodes %}
         // {{ node.name }} kernel
-        for (size_t i = 0; i < {{ node.get_macro_par_name() }}; ++i) {
+        for (size_t i = 0; i < {{ node.use_macro_par() }}; ++i) {
             kernel_names.push_back("{{ node.name }}_" + std::to_string(i));
         }
         {% endfor %}

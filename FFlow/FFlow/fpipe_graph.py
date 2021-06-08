@@ -6,48 +6,23 @@ from .fnode import *
 from .fchannel import *
 
 
-def generate_new_code_flat_map(filename):
-
-    file = open(filename, mode='r')
-    content = file.read()
-    file.close()
-
-    new_filename = filename + '.tmp'
-
-    with open(new_filename, 'w+') as f:
-        new_code = generate_flat_map_code(content)
-        f.write(new_code)
-
-    return new_filename
-
-
 class FPipeGraph:
 
-    def __init__(self, source_code_dir: str):
+    def __init__(self,
+                 source_code_dir: str,
+                 datatype: str,
+                 channel_depth: int = 16):
+        assert source_code_dir
+        assert datatype
+        assert channel_depth > 0
+
         self.source_code_dir = source_code_dir
+        self.datatype = datatype
+        self.channel_depth = channel_depth
+
         self.source = None
         self.internal_nodes = []
         self.sink = None
-
-        self.prepare_folders()
-
-    def add_source(self, source: FNode):
-        if source.node_type == FNodeType.SOURCE:
-            self.source = source
-        else:
-            sys.exit("Supplied node is not of type SOURCE")
-
-    def add_sink(self, sink: FNode):
-        if sink.node_type == FNodeType.SINK:
-            self.sink = sink
-        else:
-            sys.exit("Supplied node is not of type SINK")
-
-    def add(self, node: FNode):
-        if node.node_type not in [FNodeType.SOURCE, FNodeType.SINK]:
-            self.internal_nodes.append(node)
-        else:
-            sys.exit("Supplied node is not of type SOURCE")
 
     def prepare_folders(self):
         """
@@ -66,105 +41,169 @@ class FPipeGraph:
         self.device_dir = path.join(self.source_code_dir, 'device')
         self.nodes_dir = path.join(self.device_dir, 'nodes')
 
-        folders = [self.base_dir, self.common_dir, self.includes_dir, self.host_dir, self.device_dir, self.nodes_dir]
-
-        for folder in folders:
+        for folder in (self.base_dir, self.common_dir, self.includes_dir, self.host_dir, self.device_dir, self.nodes_dir):
             if not path.isdir(folder):
                 os.mkdir(folder)
 
-    def generate_device(self, data_type: str = 'data_t', rewrite=False):
+    def get_nodes(self):
         nodes = [self.source]
         nodes.extend(self.internal_nodes)
         nodes.append(self.sink)
+        return nodes
+
+#
+# User's functions
+#
+    def add_source(self,
+                   source: FNode):
+        assert source
+        assert not self.source
+
+        if source.kind == FNodeKind.SOURCE:
+            self.source = source
+        else:
+            sys.exit("Supplied node is not of type SOURCE")
+
+    def add_sink(self,
+                 sink: FNode):
+        assert sink
+        assert not self.sink
+
+        if sink.kind == FNodeKind.SINK:
+            self.sink = sink
+        else:
+            sys.exit("Supplied node is not of type SINK")
+
+    def add(self,
+            node: FNode):
+        assert node
+
+        if node.kind not in (FNodeKind.SOURCE, FNodeKind.SINK):
+            self.internal_nodes.append(node)
+        else:
+            sys.exit("Supplied node is not of type MAP, FILTER or FLAT_MAP")
+
+    def finalize(self):
+        nodes = self.get_nodes()
+
+        # Checks duplicate names
+        names = set()
+        for n in nodes:
+            if n.name in names:
+                sys.exit("Node's name '" + n.name + " already taken!")
+            else:
+                names.add(n.name)
 
         # Updates input and output degree
         for prv, cur, nxt in previous_current_next(nodes):
-            cur.i_degree = prv.parallelism if prv is not None else 0
-            cur.o_degree = nxt.parallelism if nxt is not None else 0
+            cur.i_degree = prv.par if prv is not None else 0
+            cur.o_degree = nxt.par if nxt is not None else 0
+
+        # Updates input datatype
+        for prv, cur, nxt in previous_current_next(nodes):
+            cur.i_datatype = prv.o_datatype if prv is not None else self.datatype
 
         # Creates channels
-        channels = []
+        self.channels = []
         for prv, cur, nxt in previous_current_next(nodes):
             if prv:
-                c = FChannel(data_type,
-                             prv.name + '_' + cur.name,
-                             16,
-                             prv.parallelism,
-                             cur.parallelism)
+                c = FChannel(prv, cur, self.channel_depth)
                 prv.o_channel = c
                 cur.i_channel = c
-                channels.append(c)
+                self.channels.append(c)
+
+        # Creates folders
+        self.prepare_folders()
+
+    def generate_tuples(self,
+                        rewrite=False):
+        filename = path.join(self.includes_dir, 'tuples.h')
+        if path.isfile(filename) and not rewrite:
+            return
+
+        nodes = [self.source]
+        nodes.extend(self.internal_nodes)
+
+        # Gathers all unique datatype
+        tuples = set([self.datatype])
+        for n in nodes:
+            tuples.add(n.o_datatype)
+
+        # Generates all unique datatype
+        result = ''
+        for t in tuples:
+            result += ("typedef struct {\n"
+                       "    uint key;\n"
+                       "    float value;\n"
+                       "} " + t + ";\n"
+                       "\n"
+                       "uint " + t + "_getKey(" + t + " data) {\n"
+                       "    return data.key;\n"
+                       "}\n"
+                       "\n")
+        file = open(filename, mode='w+')
+        file.write(result)
+        file.close()
+
+    def generate_functions(self,
+                           rewrite=False):
+        template = read_template_file(self.source_code_dir, 'function.cl')
+        for n in self.internal_nodes:
+            filename = path.join(self.nodes_dir, n.name + '.c')
+            if not path.isfile(filename) or rewrite:
+                file = open(filename, mode='w+')
+                result = template.render(node=n,
+                                         nodeKind=FNodeKind,
+                                         dispatchMode=FDispatchMode,
+                                         bufferKind=FBufferKind)
+                file.write(result)
+                file.close()
+
+    def generate_device(self,
+                        rewrite=False):
+        self.generate_tuples(rewrite)
+        self.generate_functions(rewrite)
+
+        nodes = self.get_nodes()
+        includes = [path.join(self.includes_dir, 'tuples.h')]
 
         # Creates functions
         node_functions = []
         for n in nodes:
             filename = path.join(self.nodes_dir, n.name + '.c')
             if path.isfile(filename):
-                if n.node_type == FNodeType.FLAT_MAP:
-                    n.flat_map = generate_new_code_flat_map(filename)
+                if n.is_flat_map():
+                    n.flat_map = generate_flat_map_code(n.name, filename)
                 else:
                     node_functions.append(filename)
 
-        # Includes
-        includes = [path.join(self.includes_dir, 'tuples.h')]
-
         template = read_template_file('.', 'device.cl')
-
-        result = template.render(nodeType=FNodeType,
-                                 dispatchingMode=FDispatchingMode,
-                                 gatheringMode=FGatheringMode,
-                                 bufferType=FBufferType,
-                                 channels=channels,
+        result = template.render(nodeKind=FNodeKind,
+                                 gatherKind=FGatherMode,
+                                 dispatchKind=FDispatchMode,
+                                 bufferKind=FBufferKind,
                                  nodes=nodes,
+                                 channels=self.channels,
                                  includes=includes,
                                  node_functions=node_functions)
-        for n in nodes:
-            if n.node_type == FNodeType.FLAT_MAP:
-                if path.isfile(n.flat_map):
-                    os.remove(n.flat_map)
 
         filename = path.join(self.device_dir, 'device.cl')
         if not path.isfile(filename) or rewrite:
-            file = open(filename, mode='w')
+            file = open(filename, mode='w+')
             file.write(result)
             file.close()
 
-    def generate_tuples(self, tuples=[]):
-        filename = path.join(self.includes_dir, 'tuples.h')
-        if not path.isfile(filename):
-            result = ''
-            for t in tuples:
-                result += ("typedef struct {\n"
-                           "    uint key;\n"
-                           "    float value;\n"
-                           "} " + t + ";")
-            file = open(filename, mode='x')
-            file.write(result)
-            file.close()
-
-    def generate_functions(self):
-        nodes = self.internal_nodes
-
-        template = read_template_file(self.source_code_dir, 'function.cl')
-
+        # Removes 'flat_map' temporary files
         for n in nodes:
-            filename = path.join(self.nodes_dir, n.name + '.c')
-            if not path.isfile(filename):
-                file = open(filename, mode='x')
-                result = template.render(node=n,
-                                         tuple_type_in='data_t',
-                                         tuple_type_out='data_t',
-                                         nodeType=FNodeType,
-                                         dispatchingMode=FDispatchingMode,
-                                         bufferType=FBufferType)
-                file.write(result)
-                file.close()
+            if n.kind == FNodeKind.FLAT_MAP:
+                if path.isfile(n.flat_map):
+                    os.remove(n.flat_map)
 
     def generate_host(self, rewrite=False):
         template = read_template_file(self.source_code_dir, 'host.cpp')
         filename = path.join(self.host_dir, 'host.cpp')
         if not path.isfile(filename) or rewrite:
-            file = open(filename, mode='w')
+            file = open(filename, mode='w+')
             result = template.render(nodes=self.internal_nodes,
                                      source=self.source,
                                      sink=self.sink)

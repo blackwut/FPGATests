@@ -1,6 +1,6 @@
-from .fdispatch import FDispatchingMode
-from .fgather import FGatheringMode
-from .fbuffer import FBuffer, FBufferType
+from .fgather import FGatherMode
+from .fdispatch import FDispatchMode
+from .fbuffer import FBuffer, FBufferKind
 from .fchannel import FChannel
-from .fnode import FNode, FNodeType
+from .fnode import FNode, FNodeKind
 from .fpipe_graph import FPipeGraph

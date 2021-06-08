@@ -1,8 +1,10 @@
 {% import 'channel.cl' as ch with context %}
 {% import 'tuple.cl' as tuple with context %}
 {% import 'source.cl' as source with context %}
+{% import 'filter.cl' as filter with context %}
+{% import 'map.cl' as map with context %}
+{% import 'flat_map.cl' as flat_map with context %}
 {% import 'sink.cl' as sink with context %}
-{% import 'basic_node.cl' as basic_node with context %}
 
 {% macro decleare_defines() -%}
 #define CL_AUTORUN                      \
@@ -42,8 +44,7 @@ __kernel void
 
 {% macro declare_flatmap_functions(nodes) -%}
 {% for node in nodes %}
-{% if node.node_type.value == nodeType.FLAT_MAP.value %}
-
+{% if node.is_flat_map() %}
 {% include node.flat_map with context %}
 {% endif %}
 {% endfor %}
@@ -52,14 +53,18 @@ __kernel void
 
 {% macro declare_nodes(nodes) -%}
 {% for node in nodes %}
-{% for idx in range(node.parallelism): %}
-
-{% if node.node_type.value == nodeType.SOURCE.value %}
-{{ source.source(node, idx) }}
-{% elif node.node_type.value == nodeType.SINK.value %}
-{{ sink.sink(node, idx) }}
+{% for idx in range(node.par) %}
+{% if node.is_source() %}
+{{ source.node(node, idx) }}
+{% elif node.is_filter() %}
+{{ filter.node(node, idx) }}
+{% elif node.is_map() %}
+{{ map.node(node, idx) }}
+{% elif node.is_flat_map() %}
+{{ flat_map.node(node, idx) }}
+{% elif node.is_sink() %}
+{{ sink.node(node, idx) }}
 {% else %}
-{{ basic_node.basic_node(node, idx) }}
 {% endif %}
 
 {% endfor %}
