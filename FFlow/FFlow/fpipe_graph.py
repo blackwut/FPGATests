@@ -154,8 +154,7 @@ class FPipeGraph:
                 file = open(filename, mode='w+')
                 result = template.render(node=n,
                                          nodeKind=FNodeKind,
-                                         dispatchMode=FDispatchMode,
-                                         bufferKind=FBufferKind)
+                                         dispatchMode=FDispatchMode)
                 file.write(result)
                 file.close()
 
@@ -181,7 +180,6 @@ class FPipeGraph:
         result = template.render(nodeKind=FNodeKind,
                                  gatherKind=FGatherMode,
                                  dispatchKind=FDispatchMode,
-                                 bufferKind=FBufferKind,
                                  nodes=nodes,
                                  channels=self.channels,
                                  includes=includes,

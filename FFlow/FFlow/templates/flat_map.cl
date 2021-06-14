@@ -2,7 +2,7 @@
 
 {% macro node(node, idx) -%}
 
-CL_SINGLE_TASK {{ node.kernel_name(idx) }}({{ node.parameter_buffers(bufferKind.GLOBAL) }})
+CL_SINGLE_TASK {{ node.kernel_name(idx) }}({{ node.parameter_global_buffers() }})
 {
     const uint idx = {{ idx }};
 {% if node.i_degree > 1 %}
@@ -14,11 +14,11 @@ CL_SINGLE_TASK {{ node.kernel_name(idx) }}({{ node.parameter_buffers(bufferKind.
     uint EOS = 0;
     bool done = false;
 
-{% if node.get_buffers(bufferKind.PRIVATE) | count > 0 %}
-{{ node.declare_buffers(bufferKind.PRIVATE) | indent(4, true) }}
+{% if node.get_private_buffers() | count > 0 %}
+{{ node.declare_private_buffers() | indent(4, true) }}
 {% endif %}
-{% if node.get_buffers(bufferKind.LOCAL)|count > 0 %}
-{{ node.declare_buffers(bufferKind.LOCAL) | indent(4, true) }}
+{% if node.get_local_buffers() | count > 0 %}
+{{ node.declare_local_buffers() | indent(4, true) }}
 {% endif %}
 
     while (!done) {
@@ -40,7 +40,7 @@ CL_SINGLE_TASK {{ node.kernel_name(idx) }}({{ node.parameter_buffers(bufferKind.
 {% macro declare_function(node) -%}
 {% set args = [ node.i_datatype + ' in', 'uint idx'] %}
 {% set args = args + (['uint w'] if node.is_dispatch_RR() else []) %}
-{% set args = args + node.parameter_buffers_list(bufferKind.ALL) %}
+{% set args = args + node.parameter_buffers_list() %}
 inline void {{ node.function_name() }}({{args | join(', ')}})
 {
     uint n = 0;

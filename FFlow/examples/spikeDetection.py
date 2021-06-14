@@ -26,10 +26,10 @@ p_sink = FNode('sink', 1,
                FDispatchMode.NONE,
                'data_t')
 
-# p_map.add_buffery(FBufferKind.GLOBAL, 'data_t', 'table', 1024)
-# p_map.add_buffery(FBufferKind.PRIVATE, 'uint', 'counter', 1)
-# p_map.add_buffery(FBufferKind.PRIVATE, 'uint', 'counter', 2)
-# p_map.add_buffery(FBufferKind.LOCAL, 'uint', 'sum', 2)
+p_map.add_global_buffer('data_t', 'table', 1024)
+p_map.add_private_buffer('uint', 'counter', 1)
+p_map.add_private_buffer('uint', 'counter', 2)
+p_map.add_local_buffer('uint', 'sum', 2)
 
 graph = FPipeGraph('sd_source', 'data_t')
 graph.add_source(p_source)
@@ -38,5 +38,5 @@ graph.add(p_filter)
 graph.add_sink(p_sink)
 
 graph.finalize()
-graph.generate_device()
+graph.generate_device(rewrite=True)
 graph.generate_host()

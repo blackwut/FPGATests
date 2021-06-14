@@ -32,10 +32,10 @@ p_sink = FNode('sink', 1,
                'data_t')
 
 
-p_map.add_buffer(FBufferKind.PRIVATE, 'float', 'avg')
-p_map.add_buffer(FBufferKind.PRIVATE, 'float', 'avg2', ptr=False)
-p_flatmap.add_buffer(FBufferKind.GLOBAL, 'data_t', 'table', 1024)
-p_filter.add_buffer(FBufferKind.LOCAL, 'int', 'test', 128)
+p_map.add_private_buffer('float', 'avg', ptr=True)
+p_map.add_private_buffer('float', 'avg2', ptr=False)
+p_flatmap.add_global_buffer('data_t', 'table', 1024)
+p_filter.add_local_buffer('int', 'test', 128)
 
 graph = FPipeGraph('memory_source', 'data_t')
 graph.add_source(p_source)
@@ -45,5 +45,5 @@ graph.add(p_filter)
 graph.add_sink(p_sink)
 
 graph.finalize()
-graph.generate_device()
+graph.generate_device(rewrite=True)
 graph.generate_host()

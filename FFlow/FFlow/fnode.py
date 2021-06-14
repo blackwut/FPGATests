@@ -2,7 +2,7 @@ from enum import Enum
 
 from .fdispatch import FDispatchMode
 from .fgather import FGatherMode
-from .fbuffer import FBuffer, FBufferKind
+from .fbuffer import FBufferPrivate, FBufferLocal, FBufferGlobal, FBufferAccess
 
 
 class FNodeKind(Enum):
@@ -41,24 +41,45 @@ class FNode:
         self.o_channel = None
         self.buffers = []
 
-    def add_buffer(self,
-                   kind: FBufferKind,
-                   datatype: str,
-                   name: str,
-                   size: int = 1,
-                   ptr: bool = True):
-        self.buffers.append(FBuffer(kind, datatype, name, size, ptr))
+    def add_private_buffer(self,
+                           datatype: str,
+                           name: str,
+                           size: int = 1,
+                           value=None,
+                           ptr: bool = False):
+        self.buffers.append(FBufferPrivate(datatype, name, size, value, ptr))
 
-    def get_buffers(self,
-                    kind: FBufferKind):
-        if kind is FBufferKind.ALL:
-            return self.buffers
-        return [b for b in self.buffers if b.kind is kind]
+    def add_local_buffer(self,
+                         datatype: str,
+                         name: str,
+                         size: int = 1,
+                         value=None):
+        self.buffers.append(FBufferLocal(datatype, name, size, value))
+
+    def add_global_buffer(self,
+                          datatype: str,
+                          name: str,
+                          size: int = 1,
+                          access: FBufferAccess = FBufferAccess.READ_ALL,
+                          ptr: bool = True):
+        self.buffers.append(FBufferGlobal(datatype, name, size, access, ptr))
+
+    def get_buffers(self):
+        return self.buffers
+
+    def get_private_buffers(self):
+        return [b for b in self.buffers if type(b) is FBufferPrivate]
+
+    def get_local_buffers(self):
+        return [b for b in self.buffers if type(b) is FBufferLocal]
+
+    def get_global_buffers(self):
+        return [b for b in self.buffers if type(b) is FBufferGlobal]
+
 
 #
 # Jinja2 auxiliary functions
 #
-
     def kernel_name(self, idx):
         return self.name + '_' + str(idx)
 
@@ -66,7 +87,7 @@ class FNode:
         return self.name + '_function'
 
     def call_function(self, parameter):
-        return self.function_name() + '(' + parameter + (', ' if len(self.buffers) > 0 else '') + self.use_buffers(FBufferKind.ALL) + ')'
+        return self.function_name() + '(' + parameter + (', ' if len(self.get_buffers()) > 0 else '') + self.use_buffers() + ')'
 
     def is_gather_b(self):
         return self.gather_mode.is_b()
@@ -113,21 +134,53 @@ class FNode:
         return self.o_channel.write_nb(i, j, value)
 
 # Buffers
-    def declare_buffers(self, kind: FBufferKind):
-        buffs = self.get_buffers(kind)
-        return ';\n'.join([b.declare() for b in buffs]) + (';' if len(buffs) > 0 else '')
+    def declare_buffers(self):
+        return ''.join([b.declare() + ';\n' for b in self.get_buffers()])
 
-    def parameter_buffers(self, kind: FBufferKind):
-        buffs = self.get_buffers(kind)
-        return ', '.join([b.parameter() for b in buffs])
+    def declare_private_buffers(self):
+        return ''.join([b.declare() + ';\n' for b in self.get_private_buffers()])
 
-    def parameter_buffers_list(self, kind: FBufferKind):
-        buffs = self.get_buffers(kind)
-        return [b.parameter() for b in buffs]
+    def declare_local_buffers(self):
+        return ''.join([b.declare() + ';\n' for b in self.get_local_buffers()])
 
-    def use_buffers(self, kind: FBufferKind):
-        buffs = self.get_buffers(kind)
-        return ', '.join([b.use() for b in buffs])
+    def declare_global_buffers(self):
+        return ''.join([b.declare() + ';\n' for b in self.get_global_buffers()])
+
+    def parameter_buffers(self):
+        return ', '.join(b.parameter() for b in self.get_buffers())
+
+    def parameter_private_buffers(self):
+        return ', '.join([b.parameter() for b in self.get_private_buffers()])
+
+    def parameter_local_buffers(self):
+        return ', '.join([b.parameter() for b in self.get_local_buffers()])
+
+    def parameter_global_buffers(self):
+        return ', '.join([b.parameter() for b in self.get_global_buffers()])
+
+    def parameter_buffers_list(self):
+        return [b.parameter() for b in self.get_buffers()]
+
+    def parameter_private_buffers_list(self):
+        return [b.parameter() for b in self.get_private_buffers()]
+
+    def parameter_local_buffers_list(self):
+        return [b.parameter() for b in self.get_local_buffers()]
+
+    def parameter_global_buffers_list(self):
+        return [b.parameter() for b in self.get_global_buffers()]
+
+    def use_buffers(self):
+        return ', '.join([b.use() for b in self.get_buffers()])
+
+    def use_private_buffers(self):
+        return ', '.join([b.use() for b in self.get_private_buffers()])
+
+    def use_local_buffers(self):
+        return ', '.join([b.use() for b in self.get_local_buffers()])
+
+    def use_global_buffers(self):
+        return ', '.join([b.use() for b in self.get_global_buffers()])
 
 # Tuples
     def i_tupletype(self):
