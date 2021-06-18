@@ -99,6 +99,7 @@ $(shell mkdir -p $(TARGET_HOST_DIR) $(TARGET_DEVICE_DIR) $(REPORT_DIR))
 
 host: $(SRCS) $(INCS) $(TARGET_HOST_DIR)
 	$(ECHO)$(CXX) $(CXXFLAGS) \
+		$(foreach D,$(INC_DIRS),-I$D) \
 		$(foreach D,$(DEVICE_INCLUDES),-I$D) \
 		$(AOCL_COMPILE_CONFIG) \
 		$(SRCS) \

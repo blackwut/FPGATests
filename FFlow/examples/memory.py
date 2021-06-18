@@ -34,6 +34,7 @@ p_sink = FNode('sink', 1,
 
 p_map.add_private_buffer('float', 'avg', ptr=True)
 p_map.add_private_buffer('float', 'avg2', ptr=False)
+p_map.add_global_buffer('float', 'test', 512, access=FBufferAccess.RW)
 p_flatmap.add_global_buffer('data_t', 'table', 1024)
 p_filter.add_local_buffer('int', 'test', 128)
 
@@ -46,4 +47,4 @@ graph.add_sink(p_sink)
 
 graph.finalize()
 graph.generate_device(rewrite=True)
-graph.generate_host()
+graph.generate_host(rewrite=True)

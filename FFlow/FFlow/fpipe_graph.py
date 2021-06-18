@@ -90,7 +90,7 @@ class FPipeGraph:
         names = set()
         for n in nodes:
             if n.name in names:
-                sys.exit("Node's name '" + n.name + " already taken!")
+                sys.exit("Node's name '" + n.name + "' already taken!")
             else:
                 names.add(n.name)
 
@@ -198,13 +198,31 @@ class FPipeGraph:
                     os.remove(n.flat_map)
 
     def generate_host(self, rewrite=False):
+
+        nodes = self.get_nodes()
+        buffers = []
+        for n in nodes:
+            for b in n.get_global_buffers():
+                buffers.append(b)
+
+        # TODO: avoid to check duplicates in all buffer names. Do a proper naming for buffers instead
+        # Checks duplicate buffer names
+        buffers_set = set()
+        for b in buffers:
+            if b.name in buffers_set:
+                sys.exit("Buffer's name '" + b.name + "'' already taken!")
+            else:
+                buffers_set.add(b.name)
+
         template = read_template_file(self.source_code_dir, 'host.cpp')
         filename = path.join(self.host_dir, 'host.cpp')
         if not path.isfile(filename) or rewrite:
             file = open(filename, mode='w+')
             result = template.render(nodes=self.internal_nodes,
                                      source=self.source,
-                                     sink=self.sink)
+                                     sink=self.sink,
+                                     buffers=buffers,
+                                     bufferAccess=FBufferAccess)
             file.write(result)
             file.close()
 

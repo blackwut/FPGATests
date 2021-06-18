@@ -73,13 +73,22 @@ class FNode:
     def get_local_buffers(self):
         return [b for b in self.buffers if type(b) is FBufferLocal]
 
-    def get_global_buffers(self):
-        return [b for b in self.buffers if type(b) is FBufferGlobal]
+    def get_global_value_buffers(self):
+        return [b for b in self.buffers if type(b) is FBufferGlobal and b.has_value()]
 
+    def get_global_no_value_buffers(self):
+        return [b for b in self.buffers if type(b) is FBufferGlobal and not b.has_value()]
+
+    def get_global_buffers(self, incl_has_values=True):
+        buffs = self.get_global_no_value_buffers()
+        if incl_has_values:
+            buffs.extend(self.get_global_value_buffers())
+        return buffs
 
 #
 # Jinja2 auxiliary functions
 #
+
     def kernel_name(self, idx):
         return self.name + '_' + str(idx)
 

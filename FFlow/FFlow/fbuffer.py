@@ -1,8 +1,6 @@
 import sys
 from enum import Enum
 
-# TODO: ricontrollare tutto perchè porcodio
-
 
 # Global FBuffer access mode from device
 class FBufferAccess(Enum):
@@ -125,12 +123,20 @@ class FBufferGlobal(FBuffer):
                  name: str,
                  size: int = 1,
                  access: FBufferAccess = FBufferAccess.READ_ALL,
-                 ptr: bool = True):    # set ptr = False if you need to pass a single value to kernel
+                 ptr: bool = True,      # set ptr = False if you need to pass a single value to kernel
+                 value=None):           # and fill its value
         super().__init__(datatype, name, size)
+        self.access = access
         self.ptr = ptr
+        self.value = value
         if not self.ptr and self.size > 1:
             sys.exit(self.name + ' FBufferGlobal has to be of size = 1 if ptr is False')
+        if not self.ptr and self.value is None:
+            sys.exit(self.name + ' FBufferGlobal needs a value if ptr is False')
         self.visibility = '__global'
+
+    def has_value(self):
+        return (not self.ptr and self.value is not None)    # the second condition just to be sure
 
     def is_ptr_parameter(self):
         return self.size > 1
@@ -138,19 +144,59 @@ class FBufferGlobal(FBuffer):
     def is_global(self):
         return True
 
+    def is_read_only(self):
+        return self.access in (FBufferAccess.READ, FBufferAccess.READ_ALL)
+
+    def is_write_only(self):
+        return self.access in (FBufferAccess.WRITE, FBufferAccess.WRITE_ALL)
+
+    def is_read_write(self):
+        return self.access in (FBufferAccess.RW, FBufferAccess.RW_ALL)
+
+    def is_access_single(self):
+        return self.access in (FBufferAccess.READ, FBufferAccess.WRITE, FBufferAccess.RW)
+
+    def is_access_all(self):
+        return self.access in (FBufferAccess.READ_ALL, FBufferAccess.WRITE_ALL, FBufferAccess.RW_ALL)
+
     def declare(self):
         raise RuntimeError('never call this function on FBufferGlobal')
 
     def parameter(self):
+        const = ('const ' if self.is_read_only() else '')
         if self.is_ptr_parameter():
-            return ' '.join([self.visibility,
-                             self.datatype,
-                             '*',
-                             'restrict',
-                             self.name])
+            return const + ' '.join([self.visibility,
+                                     self.datatype,
+                                     '*',
+                                     'restrict',
+                                     self.name])
         else:
-            return ' '.join([self.datatype,
-                             self.name])
+            return const + ' '.join([self.datatype,
+                                     self.name])
 
     def use(self):
         return self.name
+
+#
+# Jinja2 auxiliary functions
+#
+
+    def get_flags(self):
+        if self.is_read_only():
+            return 'CL_MEM_READ_ONLY'
+        elif self.is_write_only():
+            return 'CL_MEM_WRITE_ONLY'
+        return 'CL_MEM_READ_WRITE'
+
+    def get_queues_name(self, idx=None):
+        return self.name + '_buffer_queues' + ('' if idx is None else '[' + str(idx) +']')
+
+    def get_buffers_name(self, idx=None):
+        return self.name + '_buffers' + ('' if idx is None else '[' + str(idx) +']')
+
+    def get_declare_and_init(self):
+        if self.has_value():
+            return ' '.join([self.datatype,
+                             self.name,
+                             '=',
+                             self.value])

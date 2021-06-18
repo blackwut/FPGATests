@@ -1,3 +1,6 @@
+{%- set source_data_type = source.i_datatype -%}
+{%- set sink_data_type = sink.o_datatype -%}
+
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -6,65 +9,144 @@
 #include "utils.hpp"
 #include "tuples.h"
 
-/* Blocking QUEUE
-#include <mutex>
-#include <condition_variable>
-#include <deque>
 
-template <typename T>
-class queue
+{% macro create_node(n) -%}
+struct F{{ n.name }}
 {
-private:
-    std::mutex              d_mutex;
-    std::condition_variable d_condition;
-    std::deque<T>           d_queue;
-public:
-    void push(T const& value) {
-        {
-            std::unique_lock<std::mutex> lock(this->d_mutex);
-            d_queue.push_front(value);
+    OCL & ocl;
+    std::string name;
+    size_t par;
+
+    std::vector<std::string> kernel_names;
+    std::vector<cl_command_queue> kernel_queues;
+    std::vector<cl_kernel> kernels;
+
+    {% for b in n.get_global_no_value_buffers() %}
+    // {{ b.name }} buffer
+    std::vector<cl_command_queue> {{ b.get_queues_name() }};
+    std::vector<cl_mem> {{ b.get_buffers_name() }};
+
+    {% endfor %}
+
+    F{{ n.name }}(OCL & ocl)
+    : ocl(ocl)
+    {
+        name = "{{ n.name }}";
+        par = {{ n.par }};
+
+        for (size_t i = 0; i < par; ++i) {
+            kernel_queues.push_back(ocl.createCommandQueue());
         }
-        this->d_condition.notify_one();
+
+        // Kernels
+        for (size_t i = 0; i < par; ++i) {
+            kernels.push_back(ocl.createKernel(name + "_" + std::to_string(i)));
+        }
+
+
+        // Create Buffers and their Queues
+        {% for b in n.get_global_no_value_buffers() %}
+        // {{ b.name }} buffers
+        {% set nums = ('par' if b.is_access_single() else 1) %}
+        for (size_t i = 0; i < {{ nums }}; ++i) {
+            {{ b.get_queues_name() }}.push_back(ocl.createCommandQueue());
+
+            cl_int status;
+            cl_mem buff = clCreateBuffer(ocl.context,
+                                         CL_MEM_HOST_WRITE_ONLY | {{ b.get_flags() }},
+                                         {{ b.size }} * sizeof({{ b.datatype }}),
+                                         NULL, &status);
+            clCheckErrorMsg(status, "Failed to create {{ b.name }}");
+
+            {{ b.get_buffers_name() }}.push_back(buff);
+        }
+        {% endfor %}
     }
-    T pop() {
-        std::unique_lock<std::mutex> lock(this->d_mutex);
-        this->d_condition.wait(lock, [=]{ return !this->d_queue.empty(); });
-        T rc(std::move(this->d_queue.back()));
-        this->d_queue.pop_back();
-        return rc;
+
+    {% for b in n.get_global_no_value_buffers() %}
+
+    void prepare_{{ b.name }}(const std::vector<{{ b.datatype }}> & data{{ ', size_t replica_id' if b.is_access_single() else ''}})
+    {
+        clCheckError(clEnqueueWriteBuffer({{ b.get_queues_name('replica_id' if b.is_access_single() else '0') }},
+                                          {{ b.get_buffers_name('replica_id' if b.is_access_single() else '0') }},
+                                          CL_TRUE, 0,
+                                          {{ b.size }} * sizeof({{ b.datatype }}), data.data(),
+                                          0, NULL, NULL));
     }
+    {% endfor %}
+
+
+    void launch_kernels()
+    {
+        // TODO: checking if all prepare() buffers are done
+        {% for b in n.get_global_no_value_buffers() %}
+        for (auto & q : {{ b.get_queues_name() }}) {
+            clFinish(q);
+        }
+        {% endfor %}
+
+        {% for b in n.get_global_value_buffers() %}
+        {{ b.get_declare_and_init() }};
+        {% endfor %}
+
+        {% if n.get_global_no_value_buffers() | count > 0 %}
+        for (size_t i = 0; i < par; ++i) {
+            cl_uint argi = 0;
+            {% for b in n.get_global_no_value_buffers() %}
+            clCheckError(clSetKernelArg(kernels[i], argi++, sizeof({{ b.get_buffers_name('i' if b.is_access_single() else '0') }}), &{{ b.get_buffers_name('i' if b.is_access_single() else '0') }}));
+            {% endfor %}
+            {% for b in n.get_global_value_buffers() %}
+            clCheckError(clSetKernelArg(kernels[i], argi++, sizeof({{ b.datatype }}), &{{ b.name }}));
+            {% endfor %}
+        }
+        {% endif %}
+
+        const size_t gws[3] = {1, 1, 1};
+        const size_t lws[3] = {1, 1, 1};
+        for (size_t i = 0; i < par; ++i) {
+            clCheckError(clEnqueueNDRangeKernel(kernel_queues[i], kernels[i],
+                                                1, NULL, gws, lws,
+                                                0, NULL, NULL));
+        }
+    }
+
+    void finish()
+    {
+        for (size_t i = 0; i < par; ++i) {
+            clFinish(kernel_queues[i]);
+        }
+    }
+
+    void clean()
+    {
+        finish();
+
+        {% for b in n.get_global_no_value_buffers() %}
+        for (auto & b : {{ b.get_buffers_name() }}) {
+            if (b) clCheckError(clReleaseMemObject(b));
+        }
+
+        for (auto & q : {{ b.get_queues_name() }}) {
+            if (q) clReleaseCommandQueue(q);
+        }
+        {% endfor %}
+
+        for (auto & k : kernels) {
+            if (k) clReleaseKernel(k);
+        }
+
+        for (auto & q : kernel_queues) {
+            if (q) clReleaseCommandQueue(q);
+        }
+    }
+
 };
-END Blocking QUEUE*/
 
+{% endmacro %}
 
-{% set source_data_type = source.i_datatype %}
-{% set sink_data_type = sink.o_datatype %}
-
-{% for node in nodes %}
-#define {{ node.declare_macro_par() }}
+{% for n in nodes %}
+{{ create_node(n) }}
 {% endfor %}
-
-void fill_dataset(std::vector<{{ source_data_type }}> & dataset, const size_t N)
-{
-    for (size_t n = 0; n < N; ++n) {
-        dataset[n].key = n;
-        dataset[n].value = (float)n;
-    }
-}
-
-bool check_results(std::vector<{{ sink_data_type }}> & results, const size_t N)
-{
-    sort(results.begin(), results.end(), [](const {{ sink_data_type }} & a, const {{ sink_data_type }} & b){
-        return a.key < b.key;
-    });
-
-    for (size_t i = 0; i < N; ++i) {
-        if (!approximatelyEqual((float)i + 2.0f, results[i].value)) {
-            return false;
-        }
-    }
-    return true;
-}
 
 struct FSource
 {
@@ -182,6 +264,8 @@ struct FSource
     }
 };
 
+
+// TODO: make the pop async with arbitrary degree (use n-buffering and a queue)
 struct FSink
 {
     OCL & ocl;
@@ -207,7 +291,7 @@ struct FSink
     cl_event shutdown_event;
 
     FSink(OCL & ocl,
-            cl_uint max_batch_size)
+          cl_uint max_batch_size)
     : ocl(ocl)
     , iteration(0)
     , max_batch_size(max_batch_size)
@@ -246,8 +330,8 @@ struct FSink
         // set kernel args
         cl_uint argi = 0;
         clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(buffer), &buffer));
-        clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(last_EOS), &last_EOS));
         clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(batch_size), &batch_size));
+        clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(last_EOS), &last_EOS));
         clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(received_d), &received_d));
         clCheckError(clSetKernelArg(sink_kernel, argi++, sizeof(shutdown_d), &shutdown_d));
 
@@ -320,19 +404,17 @@ struct FSink
 
 struct FPipeGraph
 {
-    OCL ocl;
+    OCL & ocl;
     size_t max_batch_size;
 
-    size_t k_nums;
-    std::vector<std::string> kernel_names;
-    std::vector<cl_command_queue> queues;
-    std::vector<cl_kernel> kernels;
-
     FSource source_node;
+    {% for n in nodes %}
+    F{{ n.name }} {{ n.name }}_node;
+    {% endfor %}
     FSink sink_node;
 
-    volatile cl_ulong time_start;
-    volatile cl_ulong time_stop;
+    cl_ulong time_start;
+    cl_ulong time_stop;
 
     FPipeGraph(OCL & ocl,
                size_t max_batch_size,
@@ -340,43 +422,20 @@ struct FPipeGraph
     : ocl(ocl)
     , max_batch_size(max_batch_size)
     , source_node(ocl, max_batch_size, number_of_buffers)
+    {% for n in nodes %}
+    , {{ n.name }}_node(ocl)
+    {% endfor %}
     , sink_node(ocl, max_batch_size)
-    {
-        // KERNEL NAMES
-        {% for node in nodes %}
-        // {{ node.name }} kernel
-        for (size_t i = 0; i < {{ node.use_macro_par() }}; ++i) {
-            kernel_names.push_back("{{ node.name }}_" + std::to_string(i));
-        }
-        {% endfor %}
-
-        // total number of kernels ( except source(s) )
-        k_nums = kernel_names.size();
-
-        // Queues
-        for (size_t i = 0; i < k_nums; ++i) {
-            queues.push_back(ocl.createCommandQueue());
-        }
-
-        // Kernels
-        for (size_t i = 0; i < k_nums; ++i) {
-            kernels.push_back(ocl.createKernel(kernel_names[i]));
-        }
-    }
+    {}
 
     void start()
     {
         // Run FPipeGraph
-        const size_t gws[3] = {1, 1, 1};
-        const size_t lws[3] = {1, 1, 1};
-
         time_start = current_time_ns();
 
-        for (size_t i = 0; i < k_nums; ++i) {
-            clCheckError(clEnqueueNDRangeKernel(queues[i], kernels[i],
-                                                1, NULL, gws, lws,
-                                                0, NULL, NULL));
-        }
+        {% for n in nodes %}
+        {{ n.name }}_node.launch_kernels();
+        {% endfor %}
     }
 
     void push(const std::vector<{{ source_data_type }}> & batch,
@@ -396,7 +455,10 @@ struct FPipeGraph
     void wait_and_stop()
     {
         source_node.finish();
-        for (size_t i = 0; i < k_nums; ++i) clFinish(queues[i]);
+        {% for n in nodes %}
+        {{ n.name }}_node.finish();
+        {% endfor %}
+        sink_node.finish();
         time_stop = current_time_ns();
     }
 
@@ -408,20 +470,22 @@ struct FPipeGraph
     void clean()
     {
         source_node.clean();
-        // Releases
-        for (size_t i = 1; i < k_nums; ++i) if (kernels[i]) clReleaseKernel(kernels[i]);
-        for (size_t i = 1; i < k_nums; ++i) if (queues[i]) clReleaseCommandQueue(queues[i]);
+        {% for n in nodes %}
+        {{ n.name }}_node.clean();
+        {% endfor %}
+        sink_node.clean();
     }
 };
+
 
 int main(int argc, char * argv[])
 {
     std::string aocx_filename = "device.aocx";
     int platform_id = 1;
     int device_id = 0;
-    int iterations = 4;
-    int max_batch_size = 1024;
-    int number_of_buffers = 2;
+    size_t iterations = 4;
+    size_t max_batch_size = 1024;
+    size_t number_of_buffers = 2;
 
     argc--;
     argv++;
@@ -434,49 +498,68 @@ int main(int argc, char * argv[])
     if (argc > argi) number_of_buffers = atoi(argv[argi++]);
 
 
-    std::cout << "      platform_id: " << platform_id       << std::endl;
-    std::cout << "        device_id: " << device_id         << std::endl;
-    std::cout << "       iterations: " << iterations        << std::endl;
-    std::cout << "   max_batch_size: " << max_batch_size    << std::endl;
-    std::cout << "number_of_buffers: " << number_of_buffers << std::endl;
+    std::cout << COUT_HEADER << "      platform_id: " << COUT_INTEGER << platform_id       << '\n';
+    std::cout << COUT_HEADER << "        device_id: " << COUT_INTEGER << device_id         << '\n';
+    std::cout << COUT_HEADER << "       iterations: " << COUT_INTEGER << iterations        << '\n';
+    std::cout << COUT_HEADER << "   max_batch_size: " << COUT_INTEGER << max_batch_size    << '\n';
+    std::cout << COUT_HEADER << "number_of_buffers: " << COUT_INTEGER << number_of_buffers << '\n';
 
     // OpenCL init
     OCL ocl;
     ocl.init(aocx_filename, platform_id, device_id, true);
 
     FPipeGraph pipe(ocl, max_batch_size, number_of_buffers);
+
+
+    // empty data
+    {% for n in nodes %}
+    {% for b in n.get_global_no_value_buffers() %}
+    std::vector<{{ b.datatype }}> {{ b.name }}_data({{ b.size }});
+    {% endfor %}
+    {% endfor %}
+
+    // prepare all buffers for all internal nodes
+    {% for n in nodes %}
+    {% for b in n.get_global_no_value_buffers() %}
+    {% if b.is_access_single() %}
+    for (size_t i = 0; i < {{ n.par }}; ++i) {
+        pipe.{{ n.name }}_node.prepare_{{ b.name }}({{ b.name }}_data, i);
+    }
+    {% else %}
+    pipe.{{ n.name }}_node.prepare_{{ b.name }}({{ b.name }}_data);
+    {% endif%}
+    {% endfor %}
+    {% endfor %}
+
+
     pipe.start();
 
     // pushes to source
-
     std::thread t_source([&](){
         std::cout << "Source started!\n";
+
         size_t dataset_size = max_batch_size;
-        std::vector< {{ source_data_type }} > dataset(dataset_size);
-        fill_dataset(dataset, dataset_size);
+        std::vector<{{ source_data_type }}> dataset(dataset_size);
 
         for (size_t i = 0; i < iterations; ++i) {
-            std::cout << "Pushing " << iterations << " batch of size " << dataset_size << std::endl;
+            std::cout << "Source: pushing batch n. " << i << " of size " << dataset_size << std::endl;
             pipe.push(dataset, dataset_size, i == (iterations - 1));
         }
     });
 
+    // gathers from sink
     std::thread t_sink([&](){
         std::cout << "Sink started!\n";
 
         size_t dataset_size = max_batch_size;
-
         bool shutdown = false;
+
         while (!shutdown) {
             cl_uint filled_size = 0;
-            std::vector< {{ sink_data_type }} > data = pipe.pop(dataset_size, &filled_size, &shutdown);
+            std::vector<{{ sink_data_type }}> data = pipe.pop(dataset_size, &filled_size, &shutdown);
             if (filled_size > 0) {
-                if (!check_results(data, dataset_size)) {
-                    std::cout << "ERROR in checking results!" << std::endl;
-                }
-                std::cout << "Received " << filled_size << " tuples (first_element = " << data[0].value << std::endl;
+                std::cout << "Sink: received " << filled_size << " tuples (first_element = " << data[0].value << ")" << std::endl;
             }
-            std::cout << "SHUTDOWN = " << shutdown << std::endl;
         }
     });
 
